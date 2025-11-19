@@ -142,7 +142,7 @@ const MediaCard: React.FC<MediaCardProps> = ({ item }) => {
         </div>
 
         <div className="mt-3 flex flex-wrap gap-1.5">
-            {item.genres.slice(0, 2).map(g => (
+            {(item.genres || []).slice(0, 2).map(g => (
                 <span key={g} className="text-[10px] px-2 py-0.5 bg-white/5 text-slate-300 rounded-md border border-white/5">
                     {g}
                 </span>

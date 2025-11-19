@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { FilterState, MediaItem, MediaType, Episode } from "../types";
 
+// Process.env.API_KEY is polyfilled by Vite build
 const apiKey = process.env.API_KEY || '';
 const ai = new GoogleGenAI({ apiKey });
 
@@ -13,6 +14,11 @@ const getCacheKey = (prefix: string, params: any) => {
 
 // Helper function to retry API calls on 503 (Overloaded) or 429 (Rate Limit)
 const generateWithRetry = async (params: any, retries = 3, initialDelay = 2000) => {
+  // Check for API key before attempting call to give clear error
+  if (!apiKey) {
+    throw new Error("API Key is missing. Please check your configuration.");
+  }
+
   let currentDelay = initialDelay;
   for (let i = 0; i < retries; i++) {
     try {
@@ -59,24 +65,23 @@ const mediaListSchema: Schema = {
       subType: { type: Type.STRING }, // Relaxed enum
       audioType: { type: Type.STRING },
     },
-    required: ['id', 'title', 'year', 'type', 'imdbRating', 'releaseDate'],
+    required: ['id', 'title', 'year', 'type', 'imdbRating', 'releaseDate', 'genres'],
   },
 };
 
 export const fetchMediaItems = async (
   category: MediaType | 'All',
-  filters: FilterState
+  filters: FilterState,
+  page: number = 1
 ): Promise<MediaItem[]> => {
-  if (!apiKey) {
-    throw new Error("API Key is missing. Please check your configuration.");
-  }
-
-  const cacheKey = getCacheKey('list', { category, ...filters });
+  
+  const cacheKey = getCacheKey('list', { category, ...filters, page });
   if (requestCache.has(cacheKey)) {
     return requestCache.get(cacheKey);
   }
 
   const today = new Date().toISOString().split('T')[0];
+  const quantity = 20;
 
   let subTypeInstruction = "";
   if (category === MediaType.ANIME && filters.animeFormat !== 'All') {
@@ -85,20 +90,18 @@ export const fetchMediaItems = async (
 
   let sortInstruction = `Sort By: "${filters.sortBy}"`;
   let theaterInstruction = "";
-  let quantity = 20;
-
+  
+  // Adjust request for In Theaters to get a larger initial batch if possible, but pagination logic applies
   if (filters.sortBy === 'in_theaters') {
       category = MediaType.MOVIE;
-      quantity = 50;
       sortInstruction = `Sort By: "In Theaters".`;
       
       theaterInstruction = `
       STRICTLY list movies that are CURRENTLY SHOWING in cinemas/theaters WORLDWIDE as of ${today}.
       CRITICAL:
-      1. EXHAUSTIVE LIST: Provide up to ${quantity} titles.
-      2. GLOBAL COVERAGE: Check India (BookMyShow), USA, and Global listings.
-      3. NO QUALITY FILTER: Include movies even if they have low ratings.
-      4. TIMELINE: Include movies released in the last 1-3 months that are still in theaters.
+      1. GLOBAL COVERAGE: Check India (BookMyShow), USA, and Global listings.
+      2. NO QUALITY FILTER: Include movies even if they have low ratings.
+      3. TIMELINE: Include movies released in the last 1-3 months that are still in theaters.
       `;
   }
 
@@ -111,6 +114,35 @@ export const fetchMediaItems = async (
       `;
   }
 
+  // Pagination Logic
+  let paginationInstruction = "";
+  if (page > 1) {
+      paginationInstruction = `
+      PAGINATION: This is Page ${page}.
+      - The user has already seen the first ${(page - 1) * quantity} items.
+      - PROVIDE items that would appear at positions ${(page - 1) * quantity + 1} to ${page * quantity} in this ranked list.
+      - DO NOT repeat items from the top ${(page - 1) * quantity} results.
+      `;
+  }
+
+  // Rating Logic
+  let ratingInstruction = "";
+  if (filters.minRating !== 'All') {
+      ratingInstruction = `- MINIMUM IMDb Rating: ${filters.minRating}.0 or higher. STRICTLY EXCLUDE any title below ${filters.minRating}.0.`;
+  }
+
+  // Certification Logic (Mapping UI friendly names to strict terms)
+  let certificationInstruction = "";
+  if (filters.maturityRating !== 'All') {
+      let certMap = "";
+      if (filters.maturityRating === 'Family') certMap = "Family Friendly (G, PG, TV-Y, TV-Y7)";
+      else if (filters.maturityRating === 'Teen') certMap = "Teen (PG-13, TV-14)";
+      else if (filters.maturityRating === 'Adult') certMap = "Adult Only (R, TV-MA, 18+)";
+      else certMap = filters.maturityRating;
+
+      certificationInstruction = `- Certification/Maturity: STRICTLY "${certMap}". Only show titles with these ratings.`;
+  }
+
   let prompt = `Generate a list of ${quantity} ${category === 'All' ? 'Movies, TV Shows, and Anime' : category} titles. 
   OPTIMIZE FOR SPEED: Provide ONLY essential metadata.
   
@@ -118,14 +150,16 @@ export const fetchMediaItems = async (
   - Genre: "${filters.genre}" (if 'All', ignore)
   - Year: "${filters.year}" (if 'All', ignore)
   - Country: "${filters.country}" (if 'All', ignore)
-  - Maturity Rating: "${filters.maturityRating}" (if 'All', ignore)
   - Audio/Language Type: "${filters.audioType}" (If 'All', ignore).
+  ${certificationInstruction}
+  ${ratingInstruction}
   ${subTypeInstruction}
   
   ${searchLogic}
   
   ${sortInstruction}
   ${theaterInstruction}
+  ${paginationInstruction}
 
   DATA INSTRUCTIONS:
   - 'imdbRating': Precise number (e.g., 7.2).
@@ -155,9 +189,33 @@ export const fetchMediaItems = async (
     // Trim whitespace
     text = text.trim();
 
-    const data = JSON.parse(text) as MediaItem[];
-    requestCache.set(cacheKey, data);
-    return data;
+    let data = JSON.parse(text);
+
+    // Handle case where AI wraps array in an object property
+    if (!Array.isArray(data) && data.items && Array.isArray(data.items)) {
+        data = data.items;
+    }
+
+    if (!Array.isArray(data)) {
+        if (typeof data === 'object' && data !== null) {
+            data = [data];
+        } else {
+            return [];
+        }
+    }
+
+    // Sanitize data to ensure critical arrays exist
+    const sanitizedData = data.map((item: any) => ({
+        ...item,
+        genres: Array.isArray(item.genres) ? item.genres : [],
+        platforms: Array.isArray(item.platforms) ? item.platforms : [],
+    })) as MediaItem[];
+
+    // Only cache if we have results
+    if (sanitizedData.length > 0) {
+        requestCache.set(cacheKey, sanitizedData);
+    }
+    return sanitizedData;
   } catch (error) {
     console.error("Error fetching media:", error);
     throw error; // Propagate error so UI can show it
@@ -217,7 +275,7 @@ const detailSchema: Schema = {
       }
     }
   },
-  required: ['title', 'type', 'ratingsBreakdown', 'description'],
+  required: ['title', 'type', 'ratingsBreakdown', 'description', 'genres'],
 };
 
 export const fetchMediaDetails = async (title: string, type: string): Promise<MediaItem | null> => {
@@ -252,7 +310,18 @@ export const fetchMediaDetails = async (title: string, type: string): Promise<Me
       }
 
       const data = JSON.parse(text);
-      const result = Array.isArray(data) ? data[0] : data;
+      let result = Array.isArray(data) ? data[0] : data;
+      
+      // Sanitize single result
+      if (result) {
+        result = {
+            ...result,
+            genres: Array.isArray(result.genres) ? result.genres : [],
+            platforms: Array.isArray(result.platforms) ? result.platforms : [],
+            seasons: Array.isArray(result.seasons) ? result.seasons : [],
+        };
+      }
+
       requestCache.set(cacheKey, result);
       return result;
     } catch (error) {
@@ -333,9 +402,26 @@ export const fetchRecommendations = async (title: string, type: string): Promise
         text = text.replace(/^```(json)?\n?/, '').replace(/```$/, '');
     }
     
-    const data = JSON.parse(text) as MediaItem[];
-    requestCache.set(cacheKey, data);
-    return data;
+    let data = JSON.parse(text);
+    
+    if (!Array.isArray(data) && data.items && Array.isArray(data.items)) {
+        data = data.items;
+    }
+
+    if (!Array.isArray(data)) {
+       if (typeof data === 'object' && data !== null) data = [data];
+       else return [];
+    }
+
+    // Sanitize recommendations
+    const sanitizedData = data.map((item: any) => ({
+        ...item,
+        genres: Array.isArray(item.genres) ? item.genres : [],
+        platforms: Array.isArray(item.platforms) ? item.platforms : [],
+    })) as MediaItem[];
+
+    requestCache.set(cacheKey, sanitizedData);
+    return sanitizedData;
   } catch (error) {
     console.error("Error fetching recommendations:", error);
     return [];

@@ -127,6 +127,29 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category }) 
                         { v: 'Animation', l: 'Animation' },
                     ] 
                 },
+                 { 
+                    key: 'minRating', 
+                    show: true, 
+                    options: [
+                        { v: 'All', l: 'All Ratings' },
+                        { v: '9', l: '9+ (Masterpiece)' },
+                        { v: '8', l: '8+ (Great)' },
+                        { v: '7', l: '7+ (Good)' },
+                        { v: '6', l: '6+ (Okay)' },
+                        { v: '5', l: '5+ (Average)' },
+                    ],
+                     style: "text-yellow-400 border-yellow-500/20 focus:border-yellow-500 bg-slate-800/50"
+                },
+                { 
+                    key: 'maturityRating', 
+                    show: true, 
+                    options: [
+                        { v: 'All', l: 'All Certifications' },
+                        { v: 'Family', l: 'Family (G / PG)' },
+                        { v: 'Teen', l: 'Teen (PG-13 / TV-14)' },
+                        { v: 'Adult', l: 'Adult (18+ / MA)' },
+                    ]
+                },
                 { 
                     key: 'year', 
                     show: true, 
@@ -165,17 +188,6 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category }) 
                         { v: 'Turkey', l: 'Turkey' },
                         { v: 'Thailand', l: 'Thailand' },
                         { v: 'Argentina', l: 'Argentina' },
-                    ]
-                },
-                { 
-                    key: 'maturityRating', 
-                    show: true, 
-                    options: [
-                        { v: 'All', l: 'All Ratings' },
-                        { v: 'G', l: 'G / TV-Y' },
-                        { v: 'PG', l: 'PG / TV-PG' },
-                        { v: 'PG-13', l: 'PG-13 / TV-14' },
-                        { v: 'R', l: 'R / TV-MA' },
                     ]
                 },
                 { 

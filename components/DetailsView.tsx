@@ -249,7 +249,7 @@ const DetailsView: React.FC = () => {
             {/* Genres & Watchlist Action */}
             <div className="flex flex-wrap gap-4 mb-8 items-center justify-between">
                 <div className="flex flex-wrap gap-2">
-                    {item.genres.map(g => (
+                    {(item.genres || []).map(g => (
                         <span key={g} className="px-4 py-1.5 bg-white/5 border border-white/5 rounded-full text-sm text-slate-200 hover:bg-white/10 hover:border-white/10 transition-all cursor-default">
                         {g}
                         </span>

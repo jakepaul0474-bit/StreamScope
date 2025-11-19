@@ -72,6 +72,7 @@ export interface FilterState {
   year: string;
   country: string;
   maturityRating: string;
+  minRating: string; // Added minRating
   audioType: string;
   animeFormat: string; // New filter for Anime Movies vs Shows
   sortBy: 'trending' | 'popular' | 'newest' | 'rating' | 'in_theaters';
