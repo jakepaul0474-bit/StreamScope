@@ -18,6 +18,7 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
   const [hasMore, setHasMore] = useState(true);
   
   const observerTarget = useRef<HTMLDivElement>(null);
+  const isMounted = useRef(true);
 
   const [filters, setFilters] = useState<FilterState>({
     searchQuery: '',
@@ -31,17 +32,21 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
     sortBy: 'trending',
   });
 
+  useEffect(() => {
+      isMounted.current = true;
+      return () => { isMounted.current = false; };
+  }, []);
+
   // Effect for Filter Changes (Reset)
   useEffect(() => {
     setLoading(true);
-    // Clear state for new filter search
     setItems([]);
     setError(null);
     setPage(1);
     setHasMore(true);
 
     const timeoutId = setTimeout(() => {
-      loadInitialData();
+      if (isMounted.current) loadInitialData();
     }, 800);
 
     return () => clearTimeout(timeoutId);
@@ -72,18 +77,34 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
   }, [hasMore, loading, loadingMore, items, page]);
 
   const loadInitialData = async () => {
+    // Safety timeout
+    const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Request timed out")), 15000)
+    );
+
     try {
-      const data = await fetchMediaItems(category, filters, 1);
-      setItems(data);
-      if (data.length === 0) {
-          setHasMore(false);
+      // Race between the fetch and the timeout
+      const data = await Promise.race([
+          fetchMediaItems(category, filters, 1),
+          timeoutPromise
+      ]) as MediaItem[];
+
+      if (isMounted.current) {
+        setItems(data);
+        if (data.length === 0) {
+            setHasMore(false);
+        }
       }
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "Failed to fetch media.");
-      setItems([]);
+      if (isMounted.current) {
+        setError(err.message || "Failed to fetch media.");
+        setItems([]);
+      }
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -96,33 +117,34 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
     try {
       const newItems = await fetchMediaItems(category, filters, nextPage);
       
-      if (newItems.length === 0) {
-        setHasMore(false);
-      } else {
-        // Filter out duplicates just in case the AI repeats an item from previous pages
-        setItems(prev => {
-            const existingIds = new Set(prev.map(p => p.title + p.year)); // Use Title+Year as unique key
-            const uniqueNewItems = newItems.filter(item => !existingIds.has(item.title + item.year));
-            
-            // If AI returned only duplicates, assume we reached the end
-            if (uniqueNewItems.length === 0 && newItems.length > 0) {
-                setHasMore(false); 
-                return prev;
-            }
-            return [...prev, ...uniqueNewItems];
-        });
-        setPage(nextPage);
+      if (isMounted.current) {
+        if (newItems.length === 0) {
+            setHasMore(false);
+        } else {
+            setItems(prev => {
+                const existingKeys = new Set(prev.map(p => (p.title + p.year).toLowerCase())); 
+                const uniqueNewItems = newItems.filter(item => !existingKeys.has((item.title + item.year).toLowerCase()));
+                
+                if (uniqueNewItems.length === 0 && newItems.length > 0) {
+                    if (page > 5) setHasMore(false); 
+                    return prev;
+                }
+                return [...prev, ...uniqueNewItems];
+            });
+            setPage(nextPage);
+        }
       }
     } catch (err) {
       console.error("Error loading more items:", err);
-      // Don't set main error state, just stop pagination for now or show toast
-      setHasMore(false); 
     } finally {
-      setLoadingMore(false);
+      if (isMounted.current) {
+        setLoadingMore(false);
+      }
     }
   };
 
-  const isApiKeyError = error?.includes("API Key is missing");
+  const isApiKeyError = error?.includes("API Key is missing") || error?.includes("configuration");
+  const isTimeoutError = error?.includes("timed out");
 
   return (
     <div className="min-h-screen pl-0 md:pl-20 lg:pl-64 transition-all duration-300">
@@ -174,8 +196,14 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
                     <div className="bg-red-500/10 p-6 rounded-full mb-4 border border-red-500/20">
                         <AlertTriangle size={48} className="text-red-500" />
                     </div>
-                    <p className="text-xl font-bold text-white mb-2">Something went wrong</p>
-                    <p className="text-sm opacity-80 max-w-md text-center mb-6">{error}</p>
+                    <p className="text-xl font-bold text-white mb-2">
+                        {isTimeoutError ? "Connection Timed Out" : "Something went wrong"}
+                    </p>
+                    <p className="text-sm opacity-80 max-w-md text-center mb-6">
+                        {isTimeoutError 
+                            ? "The server is taking too long to respond. This might be due to high traffic or network issues." 
+                            : error}
+                    </p>
                     <button 
                         onClick={loadInitialData}
                         className="flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition-colors shadow-lg"
@@ -194,24 +222,25 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
             </div>
             
             {/* Infinite Scroll Loader */}
-            <div ref={observerTarget} className="w-full py-8 flex justify-center items-center mt-4 min-h-[80px]">
-                {loadingMore && (
-                    <div className="flex flex-col items-center gap-2">
-                        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
-                    </div>
-                )}
-                {!hasMore && items.length > 20 && (
-                    <p className="text-slate-500 text-sm italic">You've reached the end of the list.</p>
-                )}
-            </div>
+            {hasMore && (
+              <div ref={observerTarget} className="w-full py-12 flex flex-col items-center justify-center mt-4 min-h-[100px]">
+                  <div className="flex items-center gap-2">
+                     <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary"></div>
+                     <span className="text-slate-400 text-sm font-medium animate-pulse">Discovering more titles...</span>
+                  </div>
+              </div>
+            )}
+            
+            {!hasMore && items.length > 10 && (
+               <div className="w-full py-12 text-center text-slate-500 text-sm border-t border-white/5 mt-8">
+                   You've reached the end of the list.
+               </div>
+            )}
           </>
         ) : (
           <div className="flex flex-col items-center justify-center py-32 text-slate-500">
-            <div className="bg-white/5 p-6 rounded-full mb-4 backdrop-blur-md border border-white/5">
-                <div className="text-4xl">🔍</div>
-            </div>
-            <p className="text-xl font-medium text-slate-300">No results found.</p>
-            <p className="text-sm mt-1 opacity-70">Try adjusting your filters or search query.</p>
+            <p className="text-xl font-medium text-slate-400">No results found.</p>
+            <p className="text-base mt-2 opacity-70">Try adjusting your filters.</p>
           </div>
         )}
       </div>

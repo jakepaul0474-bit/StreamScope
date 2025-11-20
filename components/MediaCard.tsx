@@ -59,6 +59,9 @@ const MediaCard: React.FC<MediaCardProps> = ({ item }) => {
     }
   };
 
+  // Robust safety check for genres
+  const genres = Array.isArray(item.genres) ? item.genres : [];
+
   return (
     <div 
         onClick={handleCardClick}
@@ -142,7 +145,7 @@ const MediaCard: React.FC<MediaCardProps> = ({ item }) => {
         </div>
 
         <div className="mt-3 flex flex-wrap gap-1.5">
-            {(item.genres || []).slice(0, 2).map(g => (
+            {genres.slice(0, 2).map(g => (
                 <span key={g} className="text-[10px] px-2 py-0.5 bg-white/5 text-slate-300 rounded-md border border-white/5">
                     {g}
                 </span>

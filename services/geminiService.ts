@@ -3,7 +3,24 @@ import { FilterState, MediaItem, MediaType, Episode } from "../types";
 
 // Process.env.API_KEY is polyfilled by Vite build
 const apiKey = process.env.API_KEY || '';
-const ai = new GoogleGenAI({ apiKey });
+
+// Lazy initialization to prevent top-level crashes if the SDK has issues with empty keys
+let aiInstance: GoogleGenAI | null = null;
+
+const getAI = () => {
+  if (!aiInstance) {
+    if (!apiKey) {
+      throw new Error("API Key is missing. Please check your configuration.");
+    }
+    try {
+      aiInstance = new GoogleGenAI({ apiKey });
+    } catch (e) {
+      console.error("Failed to initialize Gemini Client:", e);
+      throw new Error("Failed to initialize AI client. Key might be invalid.");
+    }
+  }
+  return aiInstance;
+};
 
 // Simple in-memory cache
 const requestCache = new Map<string, any>();
@@ -14,19 +31,44 @@ const getCacheKey = (prefix: string, params: any) => {
 
 // Helper function to retry API calls on 503 (Overloaded) or 429 (Rate Limit)
 const generateWithRetry = async (params: any, retries = 3, initialDelay = 2000) => {
-  // Check for API key before attempting call to give clear error
+  // Validate key existence before doing anything
   if (!apiKey) {
     throw new Error("API Key is missing. Please check your configuration.");
   }
 
+  const ai = getAI();
   let currentDelay = initialDelay;
+
   for (let i = 0; i < retries; i++) {
     try {
-      return await ai.models.generateContent(params);
+      // Race the API call against a timeout
+      // Reduced timeout to 12s to provide faster feedback to user
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("API Request Timed Out")), 12000)
+      );
+
+      const result = await Promise.race([
+        ai.models.generateContent(params),
+        timeoutPromise
+      ]);
+      
+      return result as any;
+
     } catch (error: any) {
       const errorCode = error.status || error.code;
       const errorMessage = error.message || '';
       
+      // Don't retry if it's a timeout or client error (except 429)
+      if (errorMessage === "API Request Timed Out") {
+          console.warn("Gemini API timed out.");
+          if (i < retries - 1) {
+             // Retry on timeout
+             await new Promise(resolve => setTimeout(resolve, currentDelay));
+             continue;
+          }
+          throw error;
+      }
+
       const isTransientError = 
         errorCode === 503 || 
         errorCode === 429 || 
@@ -118,29 +160,41 @@ export const fetchMediaItems = async (
   let paginationInstruction = "";
   if (page > 1) {
       paginationInstruction = `
-      PAGINATION: This is Page ${page}.
-      - The user has already seen the first ${(page - 1) * quantity} items.
-      - PROVIDE items that would appear at positions ${(page - 1) * quantity + 1} to ${page * quantity} in this ranked list.
-      - DO NOT repeat items from the top ${(page - 1) * quantity} results.
+      PAGINATION - Page ${page}:
+      - This is a database query simulation.
+      - Return items from rank ${(page - 1) * quantity + 1} to ${page * quantity}.
+      - DO NOT include items from the top ${(page - 1) * quantity} (Pages 1 to ${page-1}).
+      - If you have run out of relevant items for this filter, return an empty array.
       `;
   }
 
-  // Rating Logic
+  // Rating Logic - STRICTLY ENFORCE 5 to 10
   let ratingInstruction = "";
   if (filters.minRating !== 'All') {
-      ratingInstruction = `- MINIMUM IMDb Rating: ${filters.minRating}.0 or higher. STRICTLY EXCLUDE any title below ${filters.minRating}.0.`;
+      ratingInstruction = `- STRICTLY FILTER by IMDb Rating: Must be greater than or equal to ${filters.minRating}.0. Exclude anything lower.`;
+  } else {
+      // Default behavior: User requested "All ratings should only show imdb ratings from 5 to 10"
+      // unless it's "In Theaters" where we might want to see everything.
+      if (filters.sortBy !== 'in_theaters') {
+        ratingInstruction = `- STRICTLY FILTER by IMDb Rating: Must be between 5.0 and 10.0. DO NOT show content with rating < 5.0.`;
+      }
   }
 
-  // Certification Logic (Mapping UI friendly names to strict terms)
+  // Certification Logic - SPECIFIC FILTERS
   let certificationInstruction = "";
   if (filters.maturityRating !== 'All') {
-      let certMap = "";
-      if (filters.maturityRating === 'Family') certMap = "Family Friendly (G, PG, TV-Y, TV-Y7)";
-      else if (filters.maturityRating === 'Teen') certMap = "Teen (PG-13, TV-14)";
-      else if (filters.maturityRating === 'Adult') certMap = "Adult Only (R, TV-MA, 18+)";
-      else certMap = filters.maturityRating;
-
-      certificationInstruction = `- Certification/Maturity: STRICTLY "${certMap}". Only show titles with these ratings.`;
+      if (filters.maturityRating === 'PG') {
+         certificationInstruction = `- STRICTLY Filter by Certification: Include ONLY titles rated: PG, G, TV-Y, TV-Y7, TV-G, U.`;
+      } else if (filters.maturityRating === 'PG-13') {
+         certificationInstruction = `- STRICTLY Filter by Certification: Include ONLY titles rated: PG-13, TV-14, UA.`;
+      } else if (filters.maturityRating === 'MA') {
+         certificationInstruction = `- STRICTLY Filter by Certification: Include ONLY titles rated: TV-MA.`;
+      } else if (filters.maturityRating === '18+') {
+         certificationInstruction = `- STRICTLY Filter by Certification: Include ONLY titles rated: R, NC-17, A (Adults Only), 18+.`;
+      } else {
+          // Fallback for other legacy values
+         certificationInstruction = `- STRICTLY Filter by Certification: Include ONLY titles rated ${filters.maturityRating}.`;
+      }
   }
 
   let prompt = `Generate a list of ${quantity} ${category === 'All' ? 'Movies, TV Shows, and Anime' : category} titles. 
@@ -181,12 +235,11 @@ export const fetchMediaItems = async (
     let text = response.text;
     if (!text) return [];
 
-    // CRITICAL FIX: Clean Markdown code blocks if the model outputs them
+    // Clean Markdown code blocks if the model outputs them
     if (text.startsWith('```')) {
         text = text.replace(/^```(json)?\n?/, '').replace(/```$/, '');
     }
     
-    // Trim whitespace
     text = text.trim();
 
     let data = JSON.parse(text);
