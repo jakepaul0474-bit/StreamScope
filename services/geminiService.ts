@@ -74,13 +74,21 @@ const generateWithRetry = async (params: any, retries = 3, initialDelay = 2000) 
       if (typeof errorMessage === 'string' && errorMessage.trim().startsWith('{')) {
         try {
             const parsed = JSON.parse(errorMessage);
-            if (parsed.error && parsed.error.code) {
-                errorCode = parsed.error.code;
+            if (parsed.error) {
+                errorCode = parsed.error.code || parsed.error.status || errorCode;
             }
         } catch (e) {}
       }
 
-      // Don't retry if it's a timeout or client error (except 429)
+      // Detect Rate Limiting (429 or Resource Exhausted)
+      const isRateLimit = 
+        errorCode === 429 || 
+        errorCode === "RESOURCE_EXHAUSTED" || 
+        errorMessage.includes('429') || 
+        errorMessage.includes('quota') || 
+        errorMessage.includes('RESOURCE_EXHAUSTED');
+
+      // Don't retry if it's a timeout or client error (except 429/503)
       if (errorMessage === "API Request Timed Out") {
           console.warn("Gemini API timed out.");
           if (i < retries - 1) {
@@ -93,16 +101,28 @@ const generateWithRetry = async (params: any, retries = 3, initialDelay = 2000) 
 
       const isTransientError = 
         errorCode === 503 || 
-        errorCode === 429 || 
         errorCode === 500 || 
         errorMessage.includes('503') || 
         errorMessage.includes('overloaded') ||
-        errorMessage.includes('429');
+        isRateLimit;
 
       if (isTransientError && i < retries - 1) {
-        console.warn(`Gemini API busy (Error ${errorCode}). Retrying in ${currentDelay}ms... (Attempt ${i + 1}/${retries})`);
-        await new Promise(resolve => setTimeout(resolve, currentDelay));
-        currentDelay *= 2; // Exponential backoff
+        let waitTime = currentDelay;
+        
+        if (isRateLimit) {
+            // SMART BACKOFF: If we hit a rate limit, standard 2s is not enough.
+            // We need to wait for the quota window to clear (usually 1 minute window).
+            // Increased to 30-40 seconds to prevent immediate crash loops on free tier.
+            waitTime = 30000 + (Math.random() * 10000); 
+            console.warn(`Gemini API Rate Limit Hit (429). Pausing for ${Math.round(waitTime/1000)}s to clear quota... (Attempt ${i + 1}/${retries})`);
+        } else {
+            console.warn(`Gemini API busy (Error ${errorCode}). Retrying in ${currentDelay}ms... (Attempt ${i + 1}/${retries})`);
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        
+        // Only increase backoff for non-rate-limit errors
+        if (!isRateLimit) currentDelay *= 2; 
       } else {
         throw error;
       }
@@ -175,8 +195,8 @@ export const fetchMediaItems = async (
   pastDate.setDate(todayDate.getDate() - 180); 
   const minReleaseDate = pastDate.toISOString().split('T')[0];
 
-  // OPTIMIZATION: Reduced to 8 for grid alignment and speed
-  const quantity = 8;
+  // OPTIMIZATION: Reduced to 6 to reduce token usage and improve speed
+  const quantity = 6;
 
   // Format array filters for prompt
   const genreString = filters.genre.length > 0 ? filters.genre.join(", ") : "All";

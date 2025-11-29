@@ -119,7 +119,7 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
 
         // User-friendly 429 message
         if (errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("RESOURCE_EXHAUSTED")) {
-            errMsg = "Usage limit exceeded. Please wait 30-60 seconds before trying again.";
+            errMsg = "Usage limit exceeded. The app is pausing for 30s to reset quota. Please wait and click Try Again.";
         }
 
         setError(errMsg);
@@ -169,7 +169,7 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
 
   const isApiKeyError = error?.includes("API Key is missing") || error?.includes("configuration");
   const isTimeoutError = error?.includes("timed out");
-  const isRateLimitError = error?.includes("Usage limit") || error?.includes("429");
+  const isRateLimitError = error?.includes("Usage limit") || error?.includes("429") || error?.includes("RESOURCE_EXHAUSTED");
 
   return (
     <div className="min-h-screen pl-0 md:pl-20 lg:pl-64 transition-all duration-300">
@@ -222,7 +222,7 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
                         {isRateLimitError ? <Clock size={48} className="text-yellow-500" /> : <AlertTriangle size={48} className="text-red-500" />}
                     </div>
                     <p className="text-xl font-bold text-white mb-2">
-                        {isTimeoutError ? "Connection Timed Out" : isRateLimitError ? "High Traffic" : "Something went wrong"}
+                        {isTimeoutError ? "Connection Timed Out" : isRateLimitError ? "Quota Exceeded" : "Something went wrong"}
                     </p>
                     <p className="text-sm opacity-80 max-w-md text-center mb-6 text-slate-300">
                         {isTimeoutError 
