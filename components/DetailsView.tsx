@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Star, Calendar, Globe, MonitorPlay, ShieldAlert, Mic, Info, ImageOff, Clock, ChevronDown, ChevronUp, PlayCircle, Heart, Check, Settings2, X, ExternalLink, Activity } from 'lucide-react';
+import { ArrowLeft, Star, Calendar, Globe, MonitorPlay, ShieldAlert, Mic, Info, ImageOff, Clock, ChevronDown, ChevronUp, PlayCircle, Heart, Check, Settings2, X, ExternalLink, Activity, Award } from 'lucide-react';
 import { MediaItem, MediaType, Episode } from '../types';
 import { fetchMediaDetails, fetchRecommendations, fetchSeasonEpisodes } from '../services/geminiService';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -361,11 +361,14 @@ export const DetailsView: React.FC = () => {
                 <div className="flex flex-wrap items-center gap-4 text-sm md:text-base text-slate-300 mb-6 mt-3">
                 <span className="flex items-center gap-1.5"><Calendar size={16} className="text-primary" /> {formatDate(item.releaseDate)}</span>
                 {item.country && <span className="flex items-center gap-1.5"><Globe size={16} className="text-primary" /> {item.country}</span>}
-                <span className="flex items-center gap-1.5"><ShieldAlert size={16} className="text-accent" /> {item.maturityRating}</span>
+                {item.maturityRating && <span className="flex items-center gap-1.5"><ShieldAlert size={16} className="text-accent" /> {item.maturityRating}</span>}
                 <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 font-bold"><Star size={16} fill="currentColor" /> {item.imdbRating}</span>
                 {item.audioType && (
                     <span className="flex items-center gap-1.5 px-2 py-0.5 bg-white/5 border border-white/10 rounded-md text-xs"><Mic size={14} className="text-green-400" /> {item.audioType}</span>
                 )}
+                 {item.techSpecs && item.techSpecs.length > 0 && (
+                     <span className="flex items-center gap-1.5 px-2 py-0.5 bg-white/5 border border-white/10 rounded-md text-xs"><Award size={14} className="text-purple-400" /> {item.techSpecs[0]}</span>
+                 )}
                 </div>
 
                 {/* Genres & Actions */}

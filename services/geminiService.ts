@@ -112,7 +112,7 @@ const generateWithRetry = async (params: any, retries = 3, initialDelay = 2000) 
 };
 
 // LIGHTWEIGHT Schema for list views
-// REMOVED trailerUrl to optimize speed
+// Added techSpecs back to ensure quality info is available in list
 const mediaListSchema: Schema = {
   type: Type.ARRAY,
   items: {
@@ -124,16 +124,37 @@ const mediaListSchema: Schema = {
       year: { type: Type.INTEGER },
       releaseDate: { type: Type.STRING, description: "YYYY-MM-DD" },
       imdbRating: { type: Type.NUMBER, description: "Exact IMDb rating." },
-      maturityRating: { type: Type.STRING },
+      maturityRating: { type: Type.STRING, description: "Certificate e.g. PG-13, TV-MA" },
       genres: { type: Type.ARRAY, items: { type: Type.STRING } },
-      platforms: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Streaming services" },
-      techSpecs: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Quality tags e.g. '4K', 'Dolby Atmos'" },
+      platforms: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Top 2 platforms" },
+      techSpecs: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Quality e.g. '4K', 'HDR'" },
       type: { type: Type.STRING }, 
       subType: { type: Type.STRING }, 
-      audioType: { type: Type.STRING },
+      audioType: { type: Type.STRING, description: "Language e.g. 'Sub', 'Dub', 'English'" },
     },
     required: ['id', 'title', 'year', 'type', 'imdbRating', 'releaseDate', 'genres'],
   },
+};
+
+// Minimal schema for recommendations to be super fast
+const recommendationSchema: Schema = {
+  type: Type.ARRAY,
+  items: {
+    type: Type.OBJECT,
+    properties: {
+      id: { type: Type.STRING },
+      title: { type: Type.STRING },
+      year: { type: Type.INTEGER },
+      releaseDate: { type: Type.STRING },
+      imdbRating: { type: Type.NUMBER },
+      maturityRating: { type: Type.STRING },
+      genres: { type: Type.ARRAY, items: { type: Type.STRING } },
+      posterUrl: { type: Type.STRING },
+      type: { type: Type.STRING },
+      techSpecs: { type: Type.ARRAY, items: { type: Type.STRING } }, // Basic specs
+    },
+    required: ['id', 'title', 'year', 'type', 'imdbRating'],
+  }
 };
 
 export const fetchMediaItems = async (
@@ -230,7 +251,7 @@ export const fetchMediaItems = async (
 
   let prompt = `List ${quantity} ${category === 'All' ? 'Media' : category} titles. Date: ${today}
   
-  SPEED MODE: Essential metadata only.
+  SPEED MODE: Essential metadata only. Top 2 platforms. Include TechSpecs (4K/HDR) & AudioType.
   
   Filters:
   - Genre: ${genreString}
@@ -252,8 +273,10 @@ export const fetchMediaItems = async (
   - 'imdbRating': Number (e.g. 7.2).
   - 'releaseDate': YYYY-MM-DD.
   - 'type': 'Movie', 'TV Show', 'Anime'.
-  - 'platforms': Major streaming.
-  - 'techSpecs': ["4K", "IMAX"].
+  - 'platforms': Top 2 streaming only.
+  - 'techSpecs': ["4K", "Dolby"].
+  - 'audioType': 'Sub', 'Dub', 'Multi'.
+  - 'maturityRating': 'PG-13', 'TV-MA', '18+'.
   `;
 
   // Dynamic Config Construction
@@ -412,7 +435,7 @@ export const fetchMediaDetails = async (title: string, type: string): Promise<Me
     }
 
     const prompt = `Details for ${type}: "${title}". Date: ${new Date().toISOString().split('T')[0]}.
-    Needs: releaseDate, seasons (metadata only), ratingsBreakdown, platforms, techSpecs.
+    Needs: releaseDate, seasons (metadata only), ratingsBreakdown, platforms, techSpecs, maturityRating, audioType.
     trailerUrl: YouTube URL (IGN, Rotten Tomatoes, Fandango only).
     `;
     
@@ -547,7 +570,7 @@ export const fetchRecommendations = async (title: string, type: string): Promise
     return requestCache.get(cacheKey);
   }
 
-  const prompt = `Recommend 4 titles similar to ${type} "${title}". Essential metadata only.`;
+  const prompt = `Recommend 4 titles similar to ${type} "${title}". Essential metadata only. Include TechSpecs & Audio.`;
 
   try {
     const response = await generateWithRetry({
@@ -555,7 +578,8 @@ export const fetchRecommendations = async (title: string, type: string): Promise
       contents: prompt,
       config: {
         responseMimeType: "application/json",
-        responseSchema: mediaListSchema, // Reusing list schema (no trailer)
+        // Use lightweight recommendation schema but need tech specs for badges
+        responseSchema: recommendationSchema, 
       },
     });
     

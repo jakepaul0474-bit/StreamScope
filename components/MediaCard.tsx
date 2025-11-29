@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Star, Mic, ImageOff, Calendar, Heart } from 'lucide-react';
+import { Star, Mic, ImageOff, Calendar, Heart, Shield, Award } from 'lucide-react';
 import { MediaItem } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { useWatchlist } from '../hooks/useWatchlist';
@@ -17,7 +17,7 @@ const MediaCard: React.FC<MediaCardProps> = ({ item }) => {
     `https://tse2.mm.bing.net/th?q=${encodeURIComponent(query + " poster")}&w=400&h=600&c=7&rs=1&p=0`;
 
   const getProxiedUrl = (url: string) => 
-    `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=400&output=webp`;
+    `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=400&output=webp&q=75`;
 
   const [imgSrc, setImgSrc] = useState<string>(
     item.posterUrl ? getProxiedUrl(item.posterUrl) : getBingUrl(`${item.title} ${item.year} ${item.type}`)
@@ -131,23 +131,31 @@ const MediaCard: React.FC<MediaCardProps> = ({ item }) => {
                     ? 'bg-accent/60 border-accent/50 text-white' 
                     : 'bg-black/10 border-white/5 text-slate-300 hover:text-white hover:bg-black/40'}
             `}
+            title={inWatchlist ? "Remove from Watchlist" : "Add to Watchlist"}
         >
             <Heart size={16} fill={inWatchlist ? "currentColor" : "none"} />
         </button>
 
-        {/* Top Right Badges */}
-        <div className="absolute top-2 right-2 flex flex-col gap-1 items-end z-20">
-            <span className="bg-black/20 backdrop-blur-md border border-white/5 text-white text-[10px] font-bold px-2 py-0.5 rounded-lg">
-                {item.maturityRating}
-            </span>
-            {item.audioType && (
-                <span className="bg-accent/60 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded-lg flex items-center gap-1 shadow-lg border border-accent/20">
-                    <Mic size={8} /> {item.audioType}
+        {/* Top Right Badges: Certificate, Language, Quality */}
+        <div className="absolute top-2 right-2 flex flex-col gap-1.5 items-end z-20">
+            {/* Maturity/Certificate */}
+            {item.maturityRating && (
+                <span className="bg-black/40 backdrop-blur-md border border-white/10 text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
+                     {item.maturityRating}
                 </span>
             )}
+            
+            {/* Audio/Language */}
+            {item.audioType && (
+                <span className="bg-blue-600/60 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1 shadow-lg border border-blue-400/20">
+                    <Mic size={10} /> {item.audioType}
+                </span>
+            )}
+            
+            {/* Tech Specs / Quality */}
             {techSpecs.length > 0 && (
-                <span className="bg-white/10 backdrop-blur-md text-slate-200 text-[10px] font-bold px-2 py-0.5 rounded-lg shadow-lg border border-white/10">
-                    {techSpecs[0]}
+                <span className="bg-purple-600/60 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1 shadow-lg border border-purple-400/20">
+                    <Award size={10} /> {techSpecs[0]}
                 </span>
             )}
         </div>
