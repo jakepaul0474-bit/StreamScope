@@ -26,21 +26,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         />
       )}
 
-      {/* Sidebar Container - Liquid Glass Style */}
+      {/* Sidebar Container - Liquid Glass Gradient */}
       <div className={`
         fixed left-0 top-0 h-screen flex flex-col z-50 transition-transform duration-300
         w-64 md:w-20 lg:w-64
-        bg-slate-900/40 backdrop-blur-2xl border-r border-white/10 shadow-2xl
+        bg-gradient-to-b from-white/10 to-transparent backdrop-blur-2xl border-r border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.1)]
         ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0
       `}>
         <div className="p-6 flex items-center justify-between md:justify-center lg:justify-start gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-primary/80 to-accent/80 rounded-lg flex-shrink-0 shadow-[0_0_15px_rgba(59,130,246,0.5)]"></div>
-            <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 md:hidden lg:block tracking-wider">StreamScope</h1>
+            <div className="w-8 h-8 bg-gradient-to-br from-primary/80 to-accent/80 rounded-lg flex-shrink-0 shadow-[0_0_15px_rgba(59,130,246,0.3)] ring-1 ring-white/20"></div>
+            <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 md:hidden lg:block tracking-wider drop-shadow-sm">StreamScope</h1>
           </div>
           
           {/* Mobile Close Button */}
-          <button onClick={onClose} className="md:hidden text-slate-400 hover:text-white">
+          <button onClick={onClose} className="md:hidden text-slate-400 hover:text-white transition-colors">
             <X size={24} />
           </button>
         </div>
@@ -54,8 +54,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               className={({ isActive }) =>
                 `flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 group relative overflow-hidden ${
                   isActive
-                    ? 'bg-white/10 text-white font-medium border border-white/10 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)]'
-                    : 'text-slate-400 hover:bg-white/5 hover:text-white hover:border-white/5 border border-transparent'
+                    ? 'bg-gradient-to-r from-white/15 to-white/5 text-white font-medium border border-white/10 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)] backdrop-blur-md'
+                    : 'text-slate-400 hover:bg-white/5 hover:text-white hover:border-white/5 border border-transparent hover:backdrop-blur-sm'
                 }`
               }
             >
@@ -70,7 +70,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   )}
                   
                   {/* Tooltip for collapsed desktop sidebar */}
-                  <div className="hidden md:block lg:hidden absolute left-full top-2 ml-4 px-3 py-1 bg-slate-900/80 backdrop-blur-md text-white text-xs rounded-lg border border-white/10 opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-xl transition-opacity">
+                  <div className="hidden md:block lg:hidden absolute left-full top-2 ml-4 px-3 py-1 bg-slate-900/60 backdrop-blur-xl text-white text-xs rounded-lg border border-white/10 opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-xl transition-opacity">
                     {item.label}
                   </div>
                 </>
@@ -79,8 +79,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-white/10">
-          <div className="bg-white/5 p-4 rounded-xl md:hidden lg:block backdrop-blur-md border border-white/5">
+        <div className="p-4 border-t border-white/5">
+          <div className="bg-gradient-to-br from-white/5 to-transparent p-4 rounded-xl md:hidden lg:block backdrop-blur-md border border-white/5 hover:bg-white/10 transition-colors">
               <p className="text-xs text-slate-400 text-center">Powered by Gemini 2.5</p>
           </div>
         </div>

@@ -49,6 +49,7 @@ export interface MediaItem {
   description?: string; // Made optional for list view optimization
   posterUrl?: string;   // Made optional
   backdropUrl?: string; // Made optional
+  trailerUrl?: string;  // New: YouTube trailer link
   year: number; // Keep for sorting
   releaseDate: string; // Full date YYYY-MM-DD
   imdbRating: number;
@@ -57,6 +58,7 @@ export interface MediaItem {
   contentAdvisory?: string; // Made optional
   genres: string[];
   platforms?: string[]; // Made optional
+  techSpecs?: string[]; // New: e.g. ["4K", "Dolby Atmos", "IMAX"]
   country?: string;     // Made optional
   type: MediaType;
   subType?: 'Movie' | 'TV Series' | 'OVA' | 'Special'; // Specific for Anime/Shows distinction
@@ -68,13 +70,13 @@ export interface MediaItem {
 
 export interface FilterState {
   searchQuery: string;
-  genre: string;
-  year: string;
-  country: string;
-  maturityRating: string;
-  minRating: string; // Added minRating
-  audioType: string;
-  animeFormat: string; // New filter for Anime Movies vs Shows
+  genre: string[];         // Changed to array
+  year: string;            // Keep single for now (range/threshold)
+  country: string[];       // Changed to array
+  maturityRating: string[];// Changed to array
+  minRating: string;       // Keep single (threshold)
+  audioType: string[];     // Changed to array
+  animeFormat: string[];   // Changed to array
   sortBy: 'trending' | 'popular' | 'newest' | 'rating' | 'in_theaters';
 }
 

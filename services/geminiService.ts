@@ -1,8 +1,10 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { FilterState, MediaItem, MediaType, Episode } from "../types";
 
-// Process.env.API_KEY is polyfilled by Vite build
-const apiKey = process.env.API_KEY || '';
+// Safe access to process.env to prevent crashes in browser environments without polyfills
+const apiKey = (typeof process !== 'undefined' && process.env && process.env.API_KEY) 
+  ? process.env.API_KEY 
+  : '';
 
 // Lazy initialization to prevent top-level crashes if the SDK has issues with empty keys
 let aiInstance: GoogleGenAI | null = null;
@@ -29,6 +31,16 @@ const getCacheKey = (prefix: string, params: any) => {
   return `${prefix}-${JSON.stringify(params)}`;
 };
 
+// Common "All Time Popular" movies that AI tends to hallucinate into lists
+const HALLUCINATION_BLOCKLIST = [
+    "The Shawshank Redemption", "The Godfather", "The Dark Knight", "Pulp Fiction", 
+    "Schindler's List", "Inception", "Fight Club", "Forrest Gump", "The Matrix", 
+    "Goodfellas", "Seven Samurai", "City of God", "Se7en", "Silence of the Lambs",
+    "It's a Wonderful Life", "Life Is Beautiful", "Spirited Away", "Interstellar",
+    "Parasite", "The Green Mile", "Star Wars: Episode IV", "The Lion King",
+    "Back to the Future", "Terminator 2", "Modern Times", "Psycho", "Gladiator"
+];
+
 // Helper function to retry API calls on 503 (Overloaded) or 429 (Rate Limit)
 const generateWithRetry = async (params: any, retries = 3, initialDelay = 2000) => {
   // Validate key existence before doing anything
@@ -42,9 +54,9 @@ const generateWithRetry = async (params: any, retries = 3, initialDelay = 2000) 
   for (let i = 0; i < retries; i++) {
     try {
       // Race the API call against a timeout
-      // Reduced timeout to 12s to provide faster feedback to user
+      // Increased timeout to 60s to handle complex "In Theaters" queries with Search
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("API Request Timed Out")), 12000)
+        setTimeout(() => reject(new Error("API Request Timed Out")), 60000)
       );
 
       const result = await Promise.race([
@@ -55,9 +67,19 @@ const generateWithRetry = async (params: any, retries = 3, initialDelay = 2000) 
       return result as any;
 
     } catch (error: any) {
-      const errorCode = error.status || error.code;
       const errorMessage = error.message || '';
       
+      // Parse JSON error message if present to get clean code
+      let errorCode = error.status || error.code;
+      if (typeof errorMessage === 'string' && errorMessage.trim().startsWith('{')) {
+        try {
+            const parsed = JSON.parse(errorMessage);
+            if (parsed.error && parsed.error.code) {
+                errorCode = parsed.error.code;
+            }
+        } catch (e) {}
+      }
+
       // Don't retry if it's a timeout or client error (except 429)
       if (errorMessage === "API Request Timed Out") {
           console.warn("Gemini API timed out.");
@@ -74,7 +96,8 @@ const generateWithRetry = async (params: any, retries = 3, initialDelay = 2000) 
         errorCode === 429 || 
         errorCode === 500 || 
         errorMessage.includes('503') || 
-        errorMessage.includes('overloaded');
+        errorMessage.includes('overloaded') ||
+        errorMessage.includes('429');
 
       if (isTransientError && i < retries - 1) {
         console.warn(`Gemini API busy (Error ${errorCode}). Retrying in ${currentDelay}ms... (Attempt ${i + 1}/${retries})`);
@@ -89,7 +112,7 @@ const generateWithRetry = async (params: any, retries = 3, initialDelay = 2000) 
 };
 
 // LIGHTWEIGHT Schema for list views
-// Relaxed enums to prevent parsing errors if model uses synonyms
+// REMOVED trailerUrl to optimize speed
 const mediaListSchema: Schema = {
   type: Type.ARRAY,
   items: {
@@ -97,14 +120,16 @@ const mediaListSchema: Schema = {
     properties: {
       id: { type: Type.STRING },
       title: { type: Type.STRING },
-      posterUrl: { type: Type.STRING, description: "Optional. Return empty string if not 100% sure." },
+      posterUrl: { type: Type.STRING, description: "Optional." },
       year: { type: Type.INTEGER },
       releaseDate: { type: Type.STRING, description: "YYYY-MM-DD" },
       imdbRating: { type: Type.NUMBER, description: "Exact IMDb rating." },
       maturityRating: { type: Type.STRING },
       genres: { type: Type.ARRAY, items: { type: Type.STRING } },
-      type: { type: Type.STRING }, // Relaxed enum
-      subType: { type: Type.STRING }, // Relaxed enum
+      platforms: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Streaming services" },
+      techSpecs: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Quality tags e.g. '4K', 'Dolby Atmos'" },
+      type: { type: Type.STRING }, 
+      subType: { type: Type.STRING }, 
       audioType: { type: Type.STRING },
     },
     required: ['id', 'title', 'year', 'type', 'imdbRating', 'releaseDate', 'genres'],
@@ -122,129 +147,150 @@ export const fetchMediaItems = async (
     return requestCache.get(cacheKey);
   }
 
-  const today = new Date().toISOString().split('T')[0];
-  const quantity = 20;
+  const todayDate = new Date();
+  const today = todayDate.toISOString().split('T')[0];
+  
+  const pastDate = new Date();
+  pastDate.setDate(todayDate.getDate() - 180); 
+  const minReleaseDate = pastDate.toISOString().split('T')[0];
 
+  // OPTIMIZATION: Reduced to 8 for grid alignment and speed
+  const quantity = 8;
+
+  // Format array filters for prompt
+  const genreString = filters.genre.length > 0 ? filters.genre.join(", ") : "All";
+  const countryString = filters.country.length > 0 ? filters.country.join(", ") : "All";
+  const audioString = filters.audioType.length > 0 ? filters.audioType.join(", ") : "All";
+  
   let subTypeInstruction = "";
-  if (category === MediaType.ANIME && filters.animeFormat !== 'All') {
-     subTypeInstruction = `- STRICTLY Filter by format: Only include "${filters.animeFormat}" (e.g. if 'Movie', only show Anime Movies. If 'TV Series', only show Anime Series).`;
+  if (category === MediaType.ANIME && filters.animeFormat.length > 0) {
+     subTypeInstruction = `- Format: "${filters.animeFormat.join(' OR ')}" ONLY.`;
   }
 
-  let sortInstruction = `Sort By: "${filters.sortBy}"`;
+  let sortInstruction = `Sort: "${filters.sortBy}"`;
   let theaterInstruction = "";
   
-  // Adjust request for In Theaters to get a larger initial batch if possible, but pagination logic applies
-  if (filters.sortBy === 'in_theaters') {
+  // Check if we should use Google Search (Live Data)
+  const useSearch = filters.sortBy === 'in_theaters';
+
+  if (useSearch) {
       category = MediaType.MOVIE;
-      sortInstruction = `Sort By: "In Theaters".`;
+      sortInstruction = `Sort: Release Date DESC.`;
       
       theaterInstruction = `
-      STRICTLY list movies that are CURRENTLY SHOWING in cinemas/theaters WORLDWIDE as of ${today}.
-      CRITICAL:
-      1. GLOBAL COVERAGE: Check India (BookMyShow), USA, and Global listings.
-      2. NO QUALITY FILTER: Include movies even if they have low ratings.
-      3. TIMELINE: Include movies released in the last 1-3 months that are still in theaters.
+      TASK: USE GOOGLE SEARCH to find REAL movies in theaters today: ${today}.
+      
+      CONSTRAINTS:
+      - NO "All Time Popular" lists.
+      - EXCLUDE pre-2023 movies unless RE-RELEASE.
+      - NO unreleased/future movies.
+
+      QUERIES:
+      - "Movies now showing theaters India ${today}"
+      - "BookMyShow current releases"
+      - "Global box office current ${today}"
+      - "Showtimes Masti 4"
+      - "Showtimes Predator Badlands"
+      - "Advance booking movies"
+
+      ANCHORS:
+      [New] "Masti 4", "Tharama", "The Girl Friend", "120 Bahadur", "Kalki 2898 AD", "Sisu", "Kantara: Chapter-1", "Baar Baar Dekho 2", "Gawahi Do", "Predator: Badlands", "Haq", "The Taj Story", "Wicked Part Two", "Demon Slayer: Hashira Training", "A Beautiful Breakup", "F1", "Shin Chan: The Movie"
+      [Re-release] "Star Wars: Ep I", "Veer-Zaara", "Amazing Spider-Man", "Om Shanti Om", "Devdas"
       `;
   }
 
   let searchLogic = "";
   if (filters.searchQuery && filters.searchQuery.trim() !== "") {
-      searchLogic = `
-      ADVANCED SEARCH: Query "${filters.searchQuery}".
-      - Semantic & Keyword matching.
-      - This PRIORITY overrides generic filters.
-      `;
+      searchLogic = `SEARCH QUERY: "${filters.searchQuery}" (Semantic match).`;
   }
 
-  // Pagination Logic
   let paginationInstruction = "";
   if (page > 1) {
-      paginationInstruction = `
-      PAGINATION - Page ${page}:
-      - This is a database query simulation.
-      - Return items from rank ${(page - 1) * quantity + 1} to ${page * quantity}.
-      - DO NOT include items from the top ${(page - 1) * quantity} (Pages 1 to ${page-1}).
-      - If you have run out of relevant items for this filter, return an empty array.
+      paginationInstruction = `PAGE ${page}: Items ${(page - 1) * quantity + 1} to ${page * quantity}.`;
+  }
+
+  let ratingInstruction = "";
+  if (filters.minRating !== 'All') {
+      ratingInstruction = `- IMDb >= ${filters.minRating}.0.`;
+  } else if (!useSearch) {
+      ratingInstruction = `- IMDb 5.0 - 10.0.`;
+  }
+
+  let certificationInstruction = "";
+  if (filters.maturityRating.length > 0) {
+     certificationInstruction = `- Cert: ${filters.maturityRating.join(" OR ")} only.`;
+  }
+
+  let jsonFormatInstruction = "";
+  if (useSearch) {
+      jsonFormatInstruction = `
+      OUTPUT: Valid JSON Array. Keys: "id", "title", "year", "releaseDate", "imdbRating", "genres", "platforms", "techSpecs", "type", "maturityRating", "posterUrl".
       `;
   }
 
-  // Rating Logic - STRICTLY ENFORCE 5 to 10
-  let ratingInstruction = "";
-  if (filters.minRating !== 'All') {
-      ratingInstruction = `- STRICTLY FILTER by IMDb Rating: Must be greater than or equal to ${filters.minRating}.0. Exclude anything lower.`;
-  } else {
-      // Default behavior: User requested "All ratings should only show imdb ratings from 5 to 10"
-      // unless it's "In Theaters" where we might want to see everything.
-      if (filters.sortBy !== 'in_theaters') {
-        ratingInstruction = `- STRICTLY FILTER by IMDb Rating: Must be between 5.0 and 10.0. DO NOT show content with rating < 5.0.`;
-      }
-  }
-
-  // Certification Logic - SPECIFIC FILTERS
-  let certificationInstruction = "";
-  if (filters.maturityRating !== 'All') {
-      if (filters.maturityRating === 'PG') {
-         certificationInstruction = `- STRICTLY Filter by Certification: Include ONLY titles rated: PG, G, TV-Y, TV-Y7, TV-G, U.`;
-      } else if (filters.maturityRating === 'PG-13') {
-         certificationInstruction = `- STRICTLY Filter by Certification: Include ONLY titles rated: PG-13, TV-14, UA.`;
-      } else if (filters.maturityRating === 'MA') {
-         certificationInstruction = `- STRICTLY Filter by Certification: Include ONLY titles rated: TV-MA.`;
-      } else if (filters.maturityRating === '18+') {
-         certificationInstruction = `- STRICTLY Filter by Certification: Include ONLY titles rated: R, NC-17, A (Adults Only), 18+.`;
-      } else {
-          // Fallback for other legacy values
-         certificationInstruction = `- STRICTLY Filter by Certification: Include ONLY titles rated ${filters.maturityRating}.`;
-      }
-  }
-
-  let prompt = `Generate a list of ${quantity} ${category === 'All' ? 'Movies, TV Shows, and Anime' : category} titles. 
-  OPTIMIZE FOR SPEED: Provide ONLY essential metadata.
+  let prompt = `List ${quantity} ${category === 'All' ? 'Media' : category} titles. Date: ${today}
+  
+  SPEED MODE: Essential metadata only.
   
   Filters:
-  - Genre: "${filters.genre}" (if 'All', ignore)
-  - Year: "${filters.year}" (if 'All', ignore)
-  - Country: "${filters.country}" (if 'All', ignore)
-  - Audio/Language Type: "${filters.audioType}" (If 'All', ignore).
+  - Genre: ${genreString}
+  - Year: ${filters.year}
+  - Country: ${countryString}
+  - Audio: ${audioString}
   ${certificationInstruction}
   ${ratingInstruction}
   ${subTypeInstruction}
   
   ${searchLogic}
-  
   ${sortInstruction}
   ${theaterInstruction}
   ${paginationInstruction}
 
-  DATA INSTRUCTIONS:
-  - 'imdbRating': Precise number (e.g., 7.2).
+  ${jsonFormatInstruction}
+
+  DATA:
+  - 'imdbRating': Number (e.g. 7.2).
   - 'releaseDate': YYYY-MM-DD.
-  - 'type': 'Movie', 'TV Show', or 'Anime'.
+  - 'type': 'Movie', 'TV Show', 'Anime'.
+  - 'platforms': Major streaming.
+  - 'techSpecs': ["4K", "IMAX"].
   `;
+
+  // Dynamic Config Construction
+  const config: any = {
+      systemInstruction: "You are a fast media database. Return JSON arrays.",
+  };
+
+  if (useSearch) {
+      config.tools = [{ googleSearch: {} }];
+  } else {
+      config.responseMimeType = "application/json";
+      config.responseSchema = mediaListSchema;
+  }
 
   try {
     const response = await generateWithRetry({
       model: 'gemini-2.5-flash',
       contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: mediaListSchema,
-        systemInstruction: "You are a media database. Return JSON arrays. Do not use Markdown.",
-      },
+      config: config,
     });
 
     let text = response.text;
     if (!text) return [];
 
-    // Clean Markdown code blocks if the model outputs them
+    text = text.trim();
     if (text.startsWith('```')) {
         text = text.replace(/^```(json)?\n?/, '').replace(/```$/, '');
     }
     
-    text = text.trim();
+    const jsonStartIndex = text.indexOf('[');
+    const jsonEndIndex = text.lastIndexOf(']');
+    if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
+        text = text.substring(jsonStartIndex, jsonEndIndex + 1);
+    }
 
     let data = JSON.parse(text);
 
-    // Handle case where AI wraps array in an object property
     if (!Array.isArray(data) && data.items && Array.isArray(data.items)) {
         data = data.items;
     }
@@ -257,25 +303,51 @@ export const fetchMediaItems = async (
         }
     }
 
-    // Sanitize data to ensure critical arrays exist
-    const sanitizedData = data.map((item: any) => ({
+    let sanitizedData = data.map((item: any) => ({
         ...item,
         genres: Array.isArray(item.genres) ? item.genres : [],
         platforms: Array.isArray(item.platforms) ? item.platforms : [],
+        techSpecs: Array.isArray(item.techSpecs) ? item.techSpecs : [],
     })) as MediaItem[];
 
-    // Only cache if we have results
+    if (useSearch) {
+        const todayTime = new Date(today).getTime();
+        const minTime = new Date(minReleaseDate).getTime();
+
+        sanitizedData = sanitizedData
+            .filter(item => {
+                if (HALLUCINATION_BLOCKLIST.some(banned => item.title.includes(banned))) {
+                    return false;
+                }
+
+                const itemTime = new Date(item.releaseDate).getTime();
+                const futureBuffer = todayTime + (90 * 24 * 60 * 60 * 1000); 
+
+                if (item.year < 2023) {
+                     const isReRelease = item.title.toLowerCase().includes('release') || 
+                                         item.title.toLowerCase().includes('chapter') || 
+                                         item.title.toLowerCase().includes('episode');
+                     
+                     if (!isReRelease) return false;
+                }
+
+                return !isNaN(itemTime) && itemTime <= futureBuffer && itemTime >= minTime;
+            })
+            .sort((a, b) => {
+                return new Date(b.releaseDate).getTime() - new Date(a.releaseDate).getTime();
+            });
+    }
+
     if (sanitizedData.length > 0) {
         requestCache.set(cacheKey, sanitizedData);
     }
     return sanitizedData;
   } catch (error) {
     console.error("Error fetching media:", error);
-    throw error; // Propagate error so UI can show it
+    throw error;
   }
 };
 
-// FULL DETAIL SCHEMA
 const detailSchema: Schema = {
   type: Type.OBJECT,
   properties: {
@@ -284,6 +356,7 @@ const detailSchema: Schema = {
     description: { type: Type.STRING },
     posterUrl: { type: Type.STRING },
     backdropUrl: { type: Type.STRING },
+    trailerUrl: { type: Type.STRING },
     year: { type: Type.INTEGER },
     releaseDate: { type: Type.STRING },
     imdbRating: { type: Type.NUMBER },
@@ -301,6 +374,7 @@ const detailSchema: Schema = {
     contentAdvisory: { type: Type.STRING },
     genres: { type: Type.ARRAY, items: { type: Type.STRING } },
     platforms: { type: Type.ARRAY, items: { type: Type.STRING } },
+    techSpecs: { type: Type.ARRAY, items: { type: Type.STRING } },
     country: { type: Type.STRING },
     type: { type: Type.STRING },
     subType: { type: Type.STRING },
@@ -337,12 +411,9 @@ export const fetchMediaDetails = async (title: string, type: string): Promise<Me
       return requestCache.get(cacheKey);
     }
 
-    const prompt = `Provide detailed information for the ${type}: "${title}". 
-    Current Date: ${new Date().toISOString().split('T')[0]}.
-    REQUIREMENTS:
-    - Precise 'releaseDate'.
-    - 'seasons': All seasons with summaries.
-    - 'ratingsBreakdown': Scores 0-10.
+    const prompt = `Details for ${type}: "${title}". Date: ${new Date().toISOString().split('T')[0]}.
+    Needs: releaseDate, seasons (metadata only), ratingsBreakdown, platforms, techSpecs.
+    trailerUrl: YouTube URL (IGN, Rotten Tomatoes, Fandango only).
     `;
     
     try {
@@ -365,12 +436,12 @@ export const fetchMediaDetails = async (title: string, type: string): Promise<Me
       const data = JSON.parse(text);
       let result = Array.isArray(data) ? data[0] : data;
       
-      // Sanitize single result
       if (result) {
         result = {
             ...result,
             genres: Array.isArray(result.genres) ? result.genres : [],
             platforms: Array.isArray(result.platforms) ? result.platforms : [],
+            techSpecs: Array.isArray(result.techSpecs) ? result.techSpecs : [],
             seasons: Array.isArray(result.seasons) ? result.seasons : [],
         };
       }
@@ -381,6 +452,45 @@ export const fetchMediaDetails = async (title: string, type: string): Promise<Me
         console.error("Error fetching details", error);
         return null;
     }
+}
+
+// New function to fetch trailer URL on demand (Lazy Loading)
+export const fetchTrailerUrl = async (title: string, type: string): Promise<string | null> => {
+  const cacheKey = getCacheKey('trailer', { title, type });
+  if (requestCache.has(cacheKey)) return requestCache.get(cacheKey);
+
+  const prompt = `Find a YouTube trailer URL for the ${type} "${title}".
+  - Prioritize "IGN", "Rotten Tomatoes", "Fandango" channels.
+  - Return JSON: { "trailerUrl": "https://..." }
+  - If unsure, return null.
+  `;
+
+  try {
+     const response = await generateWithRetry({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: { trailerUrl: { type: Type.STRING, nullable: true } }
+            }
+        }
+     }, 1); // 1 retry only for speed
+
+     const text = response.text;
+     if (!text) return null;
+     const data = JSON.parse(text);
+     
+     if (data.trailerUrl) {
+         requestCache.set(cacheKey, data.trailerUrl);
+         return data.trailerUrl;
+     }
+     return null;
+  } catch (e) {
+      console.error("Error fetching trailer", e);
+      return null;
+  }
 }
 
 const episodeListSchema: Schema = {
@@ -404,7 +514,7 @@ export const fetchSeasonEpisodes = async (title: string, seasonNumber: number): 
     return requestCache.get(cacheKey);
   }
 
-  const prompt = `List all episodes for Season ${seasonNumber} of the series "${title}".`;
+  const prompt = `Episodes for Season ${seasonNumber} of "${title}".`;
 
   try {
     const response = await generateWithRetry({
@@ -437,7 +547,7 @@ export const fetchRecommendations = async (title: string, type: string): Promise
     return requestCache.get(cacheKey);
   }
 
-  const prompt = `Recommend 4 titles similar to the ${type} "${title}". Return only essential metadata.`;
+  const prompt = `Recommend 4 titles similar to ${type} "${title}". Essential metadata only.`;
 
   try {
     const response = await generateWithRetry({
@@ -445,7 +555,7 @@ export const fetchRecommendations = async (title: string, type: string): Promise
       contents: prompt,
       config: {
         responseMimeType: "application/json",
-        responseSchema: mediaListSchema,
+        responseSchema: mediaListSchema, // Reusing list schema (no trailer)
       },
     });
     
@@ -466,11 +576,11 @@ export const fetchRecommendations = async (title: string, type: string): Promise
        else return [];
     }
 
-    // Sanitize recommendations
     const sanitizedData = data.map((item: any) => ({
         ...item,
         genres: Array.isArray(item.genres) ? item.genres : [],
         platforms: Array.isArray(item.platforms) ? item.platforms : [],
+        techSpecs: Array.isArray(item.techSpecs) ? item.techSpecs : [],
     })) as MediaItem[];
 
     requestCache.set(cacheKey, sanitizedData);

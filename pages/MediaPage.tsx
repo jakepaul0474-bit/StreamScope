@@ -3,7 +3,7 @@ import { FilterState, MediaItem, MediaType } from '../types';
 import { fetchMediaItems } from '../services/geminiService';
 import FilterBar from '../components/FilterBar';
 import MediaCard from '../components/MediaCard';
-import { AlertTriangle, RefreshCcw, Key } from 'lucide-react';
+import { AlertTriangle, RefreshCcw, Key, Clock } from 'lucide-react';
 
 interface MediaPageProps {
   category: MediaType | 'All';
@@ -22,13 +22,13 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
 
   const [filters, setFilters] = useState<FilterState>({
     searchQuery: '',
-    genre: [],
+    genre: [], // Changed to array
     year: 'All',
-    country: [],
-    maturityRating: [],
+    country: [], // Changed to array
+    maturityRating: [], // Changed to array
     minRating: 'All',
-    audioType: [],
-    animeFormat: [],
+    audioType: [], // Changed to array
+    animeFormat: [], // Changed to array
     sortBy: 'trending',
   });
 
@@ -77,9 +77,14 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
   }, [hasMore, loading, loadingMore, items, page]);
 
   const loadInitialData = async () => {
-    // Safety timeout
+    if (isMounted.current) {
+        setLoading(true); // Explicitly set loading to show skeletons immediately on retry
+        setError(null);
+    }
+
+    // Safety timeout - Increased to 60s to allow for global "In Theaters" check with search
     const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Request timed out")), 15000)
+        setTimeout(() => reject(new Error("Request timed out")), 60000)
     );
 
     try {
@@ -98,7 +103,26 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
     } catch (err: any) {
       console.error(err);
       if (isMounted.current) {
-        setError(err.message || "Failed to fetch media.");
+        // Clean up error message if it's a JSON string (common with 429/Google errors)
+        let errMsg = err.message || "Failed to fetch media.";
+        try {
+            // Check if error is a JSON string
+            if (errMsg.trim().startsWith('{')) {
+                const parsed = JSON.parse(errMsg);
+                if (parsed.error && parsed.error.message) {
+                    errMsg = parsed.error.message;
+                }
+            }
+        } catch (e) {
+            // Use original message if parsing fails
+        }
+
+        // User-friendly 429 message
+        if (errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("RESOURCE_EXHAUSTED")) {
+            errMsg = "Usage limit exceeded. Please wait 30-60 seconds before trying again.";
+        }
+
+        setError(errMsg);
         setItems([]);
       }
     } finally {
@@ -145,6 +169,7 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
 
   const isApiKeyError = error?.includes("API Key is missing") || error?.includes("configuration");
   const isTimeoutError = error?.includes("timed out");
+  const isRateLimitError = error?.includes("Usage limit") || error?.includes("429");
 
   return (
     <div className="min-h-screen pl-0 md:pl-20 lg:pl-64 transition-all duration-300">
@@ -194,19 +219,19 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
              ) : (
                 <>
                     <div className="bg-red-500/10 p-6 rounded-full mb-4 border border-red-500/20">
-                        <AlertTriangle size={48} className="text-red-500" />
+                        {isRateLimitError ? <Clock size={48} className="text-yellow-500" /> : <AlertTriangle size={48} className="text-red-500" />}
                     </div>
                     <p className="text-xl font-bold text-white mb-2">
-                        {isTimeoutError ? "Connection Timed Out" : "Something went wrong"}
+                        {isTimeoutError ? "Connection Timed Out" : isRateLimitError ? "High Traffic" : "Something went wrong"}
                     </p>
-                    <p className="text-sm opacity-80 max-w-md text-center mb-6">
+                    <p className="text-sm opacity-80 max-w-md text-center mb-6 text-slate-300">
                         {isTimeoutError 
-                            ? "The server is taking too long to respond. This might be due to high traffic or network issues." 
+                            ? "The server is taking too long to respond. Complex real-time queries like 'In Theaters' perform live Google Searches and may take up to 60 seconds." 
                             : error}
                     </p>
                     <button 
                         onClick={loadInitialData}
-                        className="flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition-colors shadow-lg"
+                        className="flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition-colors shadow-lg active:scale-95 transform duration-150"
                     >
                         <RefreshCcw size={18} /> Try Again
                     </button>
