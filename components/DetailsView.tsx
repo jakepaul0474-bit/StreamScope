@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Star, Calendar, Globe, MonitorPlay, ShieldAlert, Mic, Info, ImageOff, Clock, ChevronDown, ChevronUp, PlayCircle, Heart, Check, Settings2, X, ExternalLink, Activity, Award } from 'lucide-react';
+import { ArrowLeft, Star, Calendar, Globe, MonitorPlay, ShieldAlert, Mic, Info, ImageOff, Clock, ChevronDown, PlayCircle, Heart, Check, Settings2, X, ExternalLink, Activity, Award } from 'lucide-react';
 import { MediaItem, MediaType, Episode } from '../types';
 import { fetchMediaDetails, fetchRecommendations, fetchSeasonEpisodes } from '../services/geminiService';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import MediaCard from './MediaCard';
 import { useWatchlist } from '../hooks/useWatchlist';
 
@@ -546,6 +545,8 @@ export const DetailsView: React.FC = () => {
             </div>
             </div>
         </div>
+        </div> 
+        {/* ^^^ ADDED THIS MISSING DIV to close min-h-screen */}
 
         {/* Trailer Modal */}
         {showTrailerModal && (
@@ -597,8 +598,8 @@ export const DetailsView: React.FC = () => {
                              {item.trailerUrl ? (
                                 <a 
                                     href={item.trailerUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer" 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
                                     className="flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-colors font-bold"
                                 >
                                     <PlayCircle size={20} /> Watch on YouTube
