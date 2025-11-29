@@ -82,9 +82,9 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
         setError(null);
     }
 
-    // Safety timeout - Increased to 60s to allow for global "In Theaters" check with search
+    // Safety timeout - Increased to 120s to allow for Rate Limit Backoff (60s+)
     const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Request timed out")), 60000)
+        setTimeout(() => reject(new Error("Request timed out")), 120000)
     );
 
     try {
@@ -119,7 +119,7 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
 
         // User-friendly 429 message
         if (errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("RESOURCE_EXHAUSTED")) {
-            errMsg = "Usage limit exceeded. The app is pausing for 30s to reset quota. Please wait and click Try Again.";
+            errMsg = "Usage limit exceeded. The app is pausing to reset quota. Please wait ~60 seconds and click Try Again.";
         }
 
         setError(errMsg);

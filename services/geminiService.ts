@@ -42,7 +42,7 @@ const HALLUCINATION_BLOCKLIST = [
 ];
 
 // Helper function to retry API calls on 503 (Overloaded) or 429 (Rate Limit)
-const generateWithRetry = async (params: any, retries = 3, initialDelay = 2000) => {
+const generateWithRetry = async (params: any, retries = 5, initialDelay = 2000) => {
   // Validate key existence before doing anything
   if (!apiKey) {
     throw new Error("API Key is missing. Please check your configuration.");
@@ -112,8 +112,8 @@ const generateWithRetry = async (params: any, retries = 3, initialDelay = 2000) 
         if (isRateLimit) {
             // SMART BACKOFF: If we hit a rate limit, standard 2s is not enough.
             // We need to wait for the quota window to clear (usually 1 minute window).
-            // Increased to 30-40 seconds to prevent immediate crash loops on free tier.
-            waitTime = 30000 + (Math.random() * 10000); 
+            // Increased to 60+ seconds to strictly respect the RPM limit and prevent crash loops.
+            waitTime = 60000 + (Math.random() * 5000); 
             console.warn(`Gemini API Rate Limit Hit (429). Pausing for ${Math.round(waitTime/1000)}s to clear quota... (Attempt ${i + 1}/${retries})`);
         } else {
             console.warn(`Gemini API busy (Error ${errorCode}). Retrying in ${currentDelay}ms... (Attempt ${i + 1}/${retries})`);
@@ -195,8 +195,8 @@ export const fetchMediaItems = async (
   pastDate.setDate(todayDate.getDate() - 180); 
   const minReleaseDate = pastDate.toISOString().split('T')[0];
 
-  // OPTIMIZATION: Reduced to 6 to reduce token usage and improve speed
-  const quantity = 6;
+  // OPTIMIZATION: Reduced to 5 to reduce token usage per request and avoid Rate Limits (429)
+  const quantity = 5;
 
   // Format array filters for prompt
   const genreString = filters.genre.length > 0 ? filters.genre.join(", ") : "All";
