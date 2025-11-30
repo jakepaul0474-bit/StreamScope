@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Star, Calendar, Globe, MonitorPlay, ShieldAlert, Mic, Info, ImageOff, Clock, ChevronDown, PlayCircle, Heart, Check, Settings2, X, ExternalLink, Activity, Award } from 'lucide-react';
+import { ArrowLeft, Star, Calendar, Globe, MonitorPlay, ShieldAlert, Mic, Info, ImageOff, Clock, ChevronDown, PlayCircle, Heart, Check, Settings2, X, ExternalLink, Activity, Award, Users } from 'lucide-react';
 import { MediaItem, MediaType, Episode } from '../types';
-import { fetchMediaDetails, fetchRecommendations, fetchSeasonEpisodes } from '../services/geminiService';
+import { fetchMediaDetails, fetchRecommendations, fetchSeasonEpisodes, fetchTrailerUrl } from '../services/geminiService';
 import MediaCard from './MediaCard';
 import { useWatchlist } from '../hooks/useWatchlist';
 
@@ -28,10 +28,26 @@ export const DetailsView: React.FC = () => {
   const [loadingEpisodes, setLoadingEpisodes] = useState(false);
   
   const [showTrailerModal, setShowTrailerModal] = useState(false);
+  const [trailerUrl, setTrailerUrl] = useState<string | null>(null);
+  const [loadingTrailer, setLoadingTrailer] = useState(false);
 
-  const getBingUrl = (query: string, type: 'poster' | 'backdrop') => {
-     const aspect = type === 'poster' ? '&w=400&h=600' : '&w=1280&h=720';
-     return `https://tse2.mm.bing.net/th?q=${encodeURIComponent(query + " " + type)}&c=7&rs=1${aspect}&p=0`;
+  // Updated to support 'cast' type for actor photos
+  const getBingUrl = (query: string, type: 'poster' | 'backdrop' | 'cast') => {
+     let aspect = '';
+     let suffix = '';
+     
+     if (type === 'poster') {
+         aspect = '&w=400&h=600';
+         suffix = ' poster';
+     } else if (type === 'backdrop') {
+         aspect = '&w=1280&h=720';
+         suffix = ' backdrop';
+     } else if (type === 'cast') {
+         aspect = '&w=200&h=200&c=7&rs=1'; // Face focus crop
+         suffix = ' face';
+     }
+
+     return `https://tse2.mm.bing.net/th?q=${encodeURIComponent(query + suffix)}&c=7&rs=1${aspect}&p=0`;
   }
 
   const getProxiedUrl = (url: string) => 
@@ -65,7 +81,7 @@ export const DetailsView: React.FC = () => {
     return null;
   };
 
-  const getYoutubeEmbedUrl = (url?: string) => {
+  const getYoutubeEmbedUrl = (url?: string | null) => {
     if (!url) return null;
     try {
         const regExp = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
@@ -94,7 +110,9 @@ export const DetailsView: React.FC = () => {
         setIsPosterBing(false);
         setExpandedSeason(null);
         setEpisodesCache({});
+        setTrailerUrl(null);
 
+        // Fetch main details and recommendations in parallel
         const [detailsData, recsData] = await Promise.all([
             fetchMediaDetails(title, type),
             fetchRecommendations(title, type)
@@ -102,6 +120,12 @@ export const DetailsView: React.FC = () => {
         
         if (detailsData) {
             setItem(detailsData);
+            
+            // Set trailer if available in initial data (rare with optimized schema)
+            if (detailsData.trailerUrl) {
+                setTrailerUrl(detailsData.trailerUrl);
+            }
+
             if (detailsData.backdropUrl) {
                 setBackdropSrc(getProxiedUrl(detailsData.backdropUrl));
                 setIsBackdropBing(false);
@@ -116,6 +140,15 @@ export const DetailsView: React.FC = () => {
             } else {
                 setPosterSrc(getBingUrl(`${detailsData.title} ${detailsData.type}`, 'poster'));
                 setIsPosterBing(true);
+            }
+
+            // Lazy load trailer in background if not present
+            if (!detailsData.trailerUrl) {
+                setLoadingTrailer(true);
+                fetchTrailerUrl(detailsData.title, detailsData.type).then(url => {
+                    setTrailerUrl(url);
+                    setLoadingTrailer(false);
+                });
             }
         }
 
@@ -207,7 +240,7 @@ export const DetailsView: React.FC = () => {
 
   const isSeries = (item.type === MediaType.SHOW || item.type === MediaType.ANIME) && item.subType !== 'Movie';
   const inWatchlist = isInWatchlist(item.id);
-  const trailerEmbedUrl = getYoutubeEmbedUrl(item.trailerUrl);
+  const trailerEmbedUrl = getYoutubeEmbedUrl(trailerUrl);
 
   return (
     <>
@@ -382,15 +415,18 @@ export const DetailsView: React.FC = () => {
                     
                     <div className="flex items-center gap-3">
                          {/* Watch Trailer Button */}
-                         {item.trailerUrl && (
-                             <button 
-                                onClick={() => setShowTrailerModal(true)}
-                                className="flex items-center gap-2 px-6 py-2.5 rounded-full font-bold transition-all duration-300 border backdrop-blur-md bg-white/10 border-white/10 text-white hover:bg-white/20 hover:border-white/30 hover:shadow-[0_0_20px_rgba(255,255,255,0.2)]"
-                             >
-                                <PlayCircle size={18} />
-                                Watch Trailer
-                             </button>
-                         )}
+                         <button 
+                            onClick={() => setShowTrailerModal(true)}
+                            className={`flex items-center gap-2 px-6 py-2.5 rounded-full font-bold transition-all duration-300 border backdrop-blur-md
+                            ${loadingTrailer 
+                                ? 'bg-white/5 border-white/5 text-slate-400 cursor-wait' 
+                                : 'bg-white/10 border-white/10 text-white hover:bg-white/20 hover:border-white/30 hover:shadow-[0_0_20px_rgba(255,255,255,0.2)]'
+                            }`}
+                            disabled={loadingTrailer}
+                         >
+                            {loadingTrailer ? <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white"></div> : <PlayCircle size={18} />}
+                            {loadingTrailer ? 'Finding Trailer...' : 'Watch Trailer'}
+                         </button>
 
                         {/* Large Watchlist Button */}
                         <button 
@@ -455,6 +491,37 @@ export const DetailsView: React.FC = () => {
                         {item.description || "No description available."}
                         </p>
                     </div>
+
+                    {/* Top Cast Section - Compact Strip */}
+                    {item.cast && item.cast.length > 0 && (
+                        <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-3xl p-4 md:p-6 rounded-3xl border border-white/5 shadow-xl">
+                            <h2 className="text-xl font-semibold mb-4 text-white flex items-center gap-2">
+                                <Users size={20} className="text-primary" /> Top Cast
+                            </h2>
+                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-8 gap-3">
+                                {item.cast.map((actor, idx) => (
+                                    <div key={idx} className="flex flex-col items-center text-center p-2 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 transition-colors group">
+                                        <div className="w-14 h-14 rounded-full overflow-hidden shadow-md mb-2 bg-slate-700 ring-2 ring-white/10 group-hover:ring-primary/50 transition-all">
+                                             <img 
+                                                src={getBingUrl(actor, 'cast')} 
+                                                alt={actor}
+                                                className="w-full h-full object-cover"
+                                                loading="lazy"
+                                                onError={(e) => {
+                                                    e.currentTarget.style.display = 'none';
+                                                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                                }}
+                                             />
+                                             <div className="hidden w-full h-full flex items-center justify-center bg-slate-700 text-xs font-bold text-slate-400">
+                                                {actor.charAt(0)}
+                                             </div>
+                                        </div>
+                                        <span className="text-xs font-medium text-slate-300 leading-tight line-clamp-2">{actor}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Seasons Section for TV Shows/Anime */}
                     {isSeries && item.seasons && item.seasons.length > 0 && (

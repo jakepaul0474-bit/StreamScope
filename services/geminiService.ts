@@ -416,6 +416,7 @@ const detailSchema: Schema = {
     maturityRating: { type: Type.STRING },
     contentAdvisory: { type: Type.STRING },
     genres: { type: Type.ARRAY, items: { type: Type.STRING } },
+    cast: { type: Type.ARRAY, items: { type: Type.STRING } }, // Added Cast
     platforms: { type: Type.ARRAY, items: { type: Type.STRING } },
     techSpecs: { type: Type.ARRAY, items: { type: Type.STRING } },
     country: { type: Type.STRING },
@@ -455,7 +456,7 @@ export const fetchMediaDetails = async (title: string, type: string): Promise<Me
     }
 
     const prompt = `Details for ${type}: "${title}". Date: ${new Date().toISOString().split('T')[0]}.
-    Needs: releaseDate, seasons (metadata only), ratingsBreakdown, platforms, techSpecs, maturityRating, audioType.
+    Needs: releaseDate, seasons (metadata only), ratingsBreakdown, platforms, techSpecs, maturityRating, audioType, cast (Top 6 actors).
     trailerUrl: YouTube URL (IGN, Rotten Tomatoes, Fandango only).
     `;
     
@@ -485,6 +486,7 @@ export const fetchMediaDetails = async (title: string, type: string): Promise<Me
             genres: Array.isArray(result.genres) ? result.genres : [],
             platforms: Array.isArray(result.platforms) ? result.platforms : [],
             techSpecs: Array.isArray(result.techSpecs) ? result.techSpecs : [],
+            cast: Array.isArray(result.cast) ? result.cast : [],
             seasons: Array.isArray(result.seasons) ? result.seasons : [],
         };
       }

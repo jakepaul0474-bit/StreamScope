@@ -57,6 +57,7 @@ export interface MediaItem {
   maturityRating: string;
   contentAdvisory?: string; // Made optional
   genres: string[];
+  cast?: string[];      // New: Array of actor names
   platforms?: string[]; // Made optional
   techSpecs?: string[]; // New: e.g. ["4K", "Dolby Atmos", "IMAX"]
   country?: string;     // Made optional
