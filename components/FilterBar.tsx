@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Filter, Search, HelpCircle, X, ChevronDown, ChevronUp, SlidersHorizontal, Check, Square, CheckSquare } from 'lucide-react';
+import { Filter, Search, HelpCircle, X, ChevronDown, ChevronUp, SlidersHorizontal, Check, Square, CheckSquare, Loader2 } from 'lucide-react';
 import { FilterState, MediaType } from '../types';
 
 interface FilterBarProps {
   filters: FilterState;
   setFilters: React.Dispatch<React.SetStateAction<FilterState>>;
   category: MediaType | 'All';
+  isLoading: boolean;
 }
 
 // Reusable Custom Dropdown Component
@@ -116,22 +117,22 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
         onClick={() => setIsOpen(!isOpen)}
         className={`
           flex items-center justify-between gap-2 
-          min-w-[140px] px-3 py-2.5 rounded-xl
+          min-w-[130px] px-3 py-2 rounded-xl
           bg-slate-900/40 backdrop-blur-md
           border transition-all duration-300
-          text-sm font-medium shadow-sm hover:shadow-md hover:bg-slate-800/50
+          text-xs font-medium shadow-sm hover:shadow-md hover:bg-slate-800/50
           group
           ${hasActiveValue ? themeStyles[colorTheme].replace('text-slate-200', 'text-white bg-slate-800/60') : themeStyles[colorTheme]}
         `}
       >
         <div className="flex items-center gap-2 truncate">
           {icon && <span className="opacity-70">{icon}</span>}
-          <span className="truncate max-w-[120px]">
+          <span className="truncate max-w-[110px]">
             {displayLabel}
           </span>
         </div>
         <ChevronDown 
-          size={14} 
+          size={12} 
           className={`transition-transform duration-300 opacity-70 ${isOpen ? 'rotate-180' : ''}`} 
         />
       </button>
@@ -217,7 +218,7 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
   );
 };
 
-const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category }) => {
+const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, isLoading }) => {
   const [showSearchHelp, setShowSearchHelp] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [allowOverflow, setAllowOverflow] = useState(false);
@@ -335,50 +336,60 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category }) 
 
   return (
     <div className="w-full bg-gradient-to-b from-slate-900/10 to-transparent backdrop-blur-xl border-b border-white/5 sticky top-0 z-40 shadow-sm transition-all duration-300">
-      <div className="max-w-7xl mx-auto p-4">
+      <div className="max-w-7xl mx-auto p-4 relative">
         
         {/* Top Row: Search and Toggle */}
         <div className="flex gap-3 items-center">
           
-          {/* Search Input - Liquid Glass */}
-          <div className="relative flex-1 group z-50">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-primary" size={18} />
+          {/* Search Input - Compact & Pill Shaped */}
+          {/* Added ml-12 on mobile to avoid overlap with hamburger menu */}
+          <div className="relative flex-1 group z-50 max-w-2xl ml-12 md:ml-0">
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-accent/20 rounded-full blur-md opacity-0 group-focus-within:opacity-100 transition-opacity duration-500"></div>
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-primary z-10" size={16} />
             <input
               type="text"
               placeholder={`Search ${category === 'All' ? 'movies, shows...' : category}...`}
               value={filters.searchQuery}
               onChange={(e) => handleChange('searchQuery', e.target.value)}
-              onFocus={() => setShowSearchHelp(true)}
-              onBlur={() => setTimeout(() => setShowSearchHelp(false), 200)}
-              className="w-full bg-slate-900/30 hover:bg-slate-900/40 border border-white/10 focus:border-primary/40 text-white pl-10 pr-10 py-2.5 rounded-xl backdrop-blur-md shadow-inner focus:shadow-[0_0_20px_rgba(59,130,246,0.1)] focus:outline-none transition-all placeholder-slate-400/50"
+              className="w-full bg-slate-900/30 hover:bg-slate-900/40 border border-white/10 focus:border-white/20 text-white pl-11 pr-10 py-2 rounded-full backdrop-blur-md shadow-inner focus:bg-slate-800/60 focus:outline-none transition-all placeholder-slate-400/50 text-sm relative z-0"
             />
             
             {/* Help Icon Toggle */}
             <button 
                 onClick={() => setShowSearchHelp(!showSearchHelp)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors focus:outline-none"
+                className={`absolute right-3 top-1/2 -translate-y-1/2 transition-colors focus:outline-none z-10 p-1 rounded-full hover:bg-white/10 ${showSearchHelp ? 'text-primary' : 'text-slate-400'}`}
+                title="Advanced Search Syntax"
             >
-                {showSearchHelp ? <X size={16} /> : <HelpCircle size={16} />}
+                {showSearchHelp ? <X size={14} /> : <HelpCircle size={14} />}
             </button>
 
             {/* Advanced Search Tooltip */}
             <div className={`
-                absolute top-full left-0 right-0 mt-2 p-4 rounded-xl border border-white/10 bg-slate-900/80 backdrop-blur-3xl shadow-2xl transition-all duration-300 origin-top
+                absolute top-full left-0 right-0 mt-3 p-4 rounded-2xl border border-white/10 bg-[#0a0f1d]/90 backdrop-blur-3xl shadow-2xl transition-all duration-300 origin-top
                 ${showSearchHelp ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'}
             `}>
-                <h4 className="text-xs font-bold text-primary uppercase tracking-widest mb-2">Advanced Search</h4>
-                <div className="space-y-2 text-sm text-slate-300">
-                    <div className="flex items-start gap-2">
-                        <span className="bg-white/10 px-1.5 rounded text-white font-mono text-xs mt-0.5">actor:</span>
-                        <span>Find by cast <span className="text-slate-500 text-xs">(e.g. "actor: Cillian Murphy")</span></span>
+                <h4 className="text-[10px] font-bold text-primary uppercase tracking-widest mb-3 border-b border-white/5 pb-2">Search Syntax</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="bg-white/5 p-2 rounded-lg border border-white/5">
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="text-accent font-mono text-xs">actor:</span>
+                            <span className="text-slate-200 text-xs font-medium">Cast Search</span>
+                        </div>
+                        <p className="text-[10px] text-slate-500">e.g. "actor: Cillian Murphy"</p>
                     </div>
-                    <div className="flex items-start gap-2">
-                        <span className="bg-white/10 px-1.5 rounded text-white font-mono text-xs mt-0.5">director:</span>
-                        <span>Find by director <span className="text-slate-500 text-xs">(e.g. "director: Nolan")</span></span>
+                    <div className="bg-white/5 p-2 rounded-lg border border-white/5">
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="text-accent font-mono text-xs">director:</span>
+                            <span className="text-slate-200 text-xs font-medium">Director Search</span>
+                        </div>
+                        <p className="text-[10px] text-slate-500">e.g. "director: Nolan"</p>
                     </div>
-                    <div className="flex items-start gap-2">
-                        <span className="bg-white/10 px-1.5 rounded text-white font-mono text-xs mt-0.5">Plot</span>
-                        <span>Description search <span className="text-slate-500 text-xs">(e.g. "80s sci-fi with aliens")</span></span>
+                    <div className="bg-white/5 p-2 rounded-lg border border-white/5">
+                         <div className="flex items-center gap-2 mb-1">
+                            <span className="text-accent font-mono text-xs">plot:</span>
+                            <span className="text-slate-200 text-xs font-medium">Plot Search</span>
+                        </div>
+                        <p className="text-[10px] text-slate-500">e.g. "plot: time travel"</p>
                     </div>
                 </div>
             </div>
@@ -387,21 +398,30 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category }) 
           {/* Toggle Button */}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
+            disabled={isLoading}
             className={`
-                flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all duration-300 border select-none backdrop-blur-md
+                flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all duration-300 border select-none backdrop-blur-md text-sm
                 ${isExpanded 
                     ? 'bg-gradient-to-r from-primary/80 to-primary/60 text-white border-primary/50 shadow-[0_0_15px_rgba(59,130,246,0.3)]' 
                     : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10 hover:text-white'}
+                ${isLoading ? 'opacity-80 cursor-wait' : ''}
             `}
           >
-            <SlidersHorizontal size={18} />
-            <span className="hidden md:inline">Filters</span>
-            {activeFilterCount > 0 && !isExpanded && (
+            {isLoading ? (
+                <Loader2 size={16} className="animate-spin text-primary" />
+            ) : (
+                <SlidersHorizontal size={16} />
+            )}
+            
+            <span className="hidden md:inline">{isLoading ? 'Loading...' : 'Filters'}</span>
+            
+            {!isLoading && activeFilterCount > 0 && !isExpanded && (
                 <span className="flex items-center justify-center w-5 h-5 bg-accent text-white text-[10px] rounded-full font-bold shadow-lg">
                     {activeFilterCount}
                 </span>
             )}
-            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            
+            {!isLoading && (isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
           </button>
         </div>
 
@@ -414,13 +434,13 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category }) 
            <div className="min-h-0 space-y-4 pb-4">
                 {/* Sort Options */}
                 <div className="flex flex-col md:flex-row gap-3 items-start md:items-center pb-2 border-b border-white/5">
-                    <span className="text-slate-400 text-xs font-bold uppercase tracking-widest whitespace-nowrap">Sort By</span>
+                    <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">Sort By</span>
                     <div className="flex items-center gap-2 overflow-x-auto w-full no-scrollbar mask-image-linear-gradient pb-1">
                         {sortOptions.map((option) => (
                             <button
                                 key={option.value}
                                 onClick={() => handleChange('sortBy', option.value as any)}
-                                className={`px-4 py-1.5 rounded-full text-sm capitalize transition-all whitespace-nowrap border flex-shrink-0 backdrop-blur-sm ${
+                                className={`px-4 py-1.5 rounded-full text-xs font-medium capitalize transition-all whitespace-nowrap border flex-shrink-0 backdrop-blur-sm ${
                                     filters.sortBy === option.value 
                                     ? 'bg-primary/20 text-primary border-primary/50 shadow-[0_0_10px_rgba(59,130,246,0.2)]' 
                                     : 'bg-white/5 text-slate-400 border-white/5 hover:bg-white/10 hover:text-white hover:border-white/10'
@@ -434,8 +454,8 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category }) 
 
                 {/* Filter Dropdowns - Using CustomSelect */}
                 <div className="flex flex-wrap gap-3 items-center">
-                    <div className="p-2 bg-white/5 rounded-xl border border-white/10 mr-1 backdrop-blur-sm">
-                        <Filter size={16} className="text-primary" />
+                    <div className="p-2 bg-white/5 rounded-full border border-white/10 mr-1 backdrop-blur-sm">
+                        <Filter size={14} className="text-primary" />
                     </div>
                     
                     {category === MediaType.ANIME && (
@@ -526,7 +546,7 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category }) 
                                 audioType: [],
                                 animeFormat: []
                             }))}
-                            className="px-3 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium hover:bg-red-500/20 hover:text-red-300 transition-colors backdrop-blur-sm"
+                            className="px-3 py-2 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium hover:bg-red-500/20 hover:text-red-300 transition-colors backdrop-blur-sm"
                         >
                             Reset
                         </button>
@@ -534,6 +554,13 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category }) 
                 </div>
            </div>
         </div>
+
+        {/* Global Loading Line at the bottom */}
+        {isLoading && (
+            <div className="absolute bottom-0 left-0 right-0 h-[1px] w-full overflow-hidden">
+                <div className="animate-[shimmer_2s_infinite] h-full w-full bg-gradient-to-r from-transparent via-primary to-transparent" />
+            </div>
+        )}
       </div>
     </div>
   );

@@ -173,7 +173,7 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
 
   return (
     <div className="min-h-screen pl-0 md:pl-20 lg:pl-64 transition-all duration-300">
-      <FilterBar filters={filters} setFilters={setFilters} category={category} />
+      <FilterBar filters={filters} setFilters={setFilters} category={category} isLoading={loading} />
       
       <div className="p-6 max-w-8xl mx-auto">
         <h2 className="text-2xl font-bold mb-6 text-white pl-2 flex items-center gap-3">
