@@ -78,6 +78,7 @@ export interface FilterState {
   minRating: string;       // Keep single (threshold)
   audioType: string[];     // Changed to array
   animeFormat: string[];   // Changed to array
+  themes: string[];        // New: Specific tags like "Gore", "Isekai", "Cyberpunk"
   sortBy: 'trending' | 'popular' | 'newest' | 'rating' | 'in_theaters';
 }
 

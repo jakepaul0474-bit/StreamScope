@@ -1,20 +1,15 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { FilterState, MediaItem, MediaType, Episode } from "../types";
 
-// Safe access to process.env OR import.meta.env to prevent crashes in browser environments
-const getEnvVar = (key: string) => {
-    // Check Vite native env first
-    if (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env[`VITE_${key}`]) {
-        return (import.meta as any).env[`VITE_${key}`];
-    }
-    // Check process.env (Vite define or Node)
-    if (typeof process !== 'undefined' && process.env && process.env[key]) {
-        return process.env[key];
-    }
-    return '';
-};
+// DIRECT ACCESS: This allows Vite to statically replace 'process.env.API_KEY' at build time.
+// We also check import.meta.env.VITE_API_KEY for local development.
+const apiKey = 
+  (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_API_KEY) || 
+  process.env.API_KEY || 
+  '';
 
-const apiKey = getEnvVar('API_KEY');
+// Debug log to help verify key presence in Vercel logs (masked)
+console.log("Gemini Service Init - API Key Present:", !!apiKey);
 
 // Lazy initialization to prevent top-level crashes if the SDK has issues with empty keys
 let aiInstance: GoogleGenAI | null = null;
@@ -212,6 +207,7 @@ export const fetchMediaItems = async (
   const genreString = filters.genre.length > 0 ? filters.genre.join(", ") : "All";
   const countryString = filters.country.length > 0 ? filters.country.join(", ") : "All";
   const audioString = filters.audioType.length > 0 ? filters.audioType.join(", ") : "All";
+  const themeString = filters.themes.length > 0 ? filters.themes.join(", ") : "All";
   
   let subTypeInstruction = "";
   if (category === MediaType.ANIME && filters.animeFormat.length > 0) {
@@ -272,6 +268,15 @@ export const fetchMediaItems = async (
      certificationInstruction = `- Cert: ${filters.maturityRating.join(" OR ")} only.`;
   }
 
+  let themeInstruction = "";
+  if (filters.themes.length > 0) {
+      themeInstruction = `- Themes/Tags: "${themeString}". STRICTLY MATCH.`;
+      // Specific handling for Gore/Horror to ensure content advisory
+      if (filters.themes.includes("Gore")) {
+          themeInstruction += " Include explicit horror/gore titles.";
+      }
+  }
+
   let jsonFormatInstruction = "";
   if (useSearch) {
       jsonFormatInstruction = `
@@ -288,6 +293,7 @@ export const fetchMediaItems = async (
   - Year: ${filters.year}
   - Country: ${countryString}
   - Audio: ${audioString}
+  ${themeInstruction}
   ${certificationInstruction}
   ${ratingInstruction}
   ${subTypeInstruction}

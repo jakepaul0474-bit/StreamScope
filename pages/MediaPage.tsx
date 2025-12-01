@@ -22,13 +22,14 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
 
   const [filters, setFilters] = useState<FilterState>({
     searchQuery: '',
-    genre: [], // Changed to array
+    genre: [], 
     year: 'All',
-    country: [], // Changed to array
-    maturityRating: [], // Changed to array
+    country: [], 
+    maturityRating: [], 
     minRating: 'All',
-    audioType: [], // Changed to array
-    animeFormat: [], // Changed to array
+    audioType: [], 
+    animeFormat: [], 
+    themes: [], // New Themes/Tags array
     sortBy: 'trending',
   });
 

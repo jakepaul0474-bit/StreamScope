@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Filter, Search, HelpCircle, X, ChevronDown, ChevronUp, SlidersHorizontal, Check, Square, CheckSquare, Loader2 } from 'lucide-react';
+import { Filter, Search, HelpCircle, X, ChevronDown, ChevronUp, SlidersHorizontal, Check, Square, CheckSquare, Loader2, Tag } from 'lucide-react';
 import { FilterState, MediaType } from '../types';
 
 interface FilterBarProps {
@@ -18,7 +18,7 @@ interface CustomSelectProps {
   icon?: React.ReactNode;
   searchable?: boolean;
   multi?: boolean;
-  colorTheme?: 'default' | 'accent' | 'yellow' | 'green';
+  colorTheme?: 'default' | 'accent' | 'yellow' | 'green' | 'red';
 }
 
 const CustomSelect: React.FC<CustomSelectProps> = ({ 
@@ -105,7 +105,8 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
     default: "border-white/10 text-slate-200 hover:border-white/20",
     accent: "border-accent/30 text-accent hover:border-accent/50",
     yellow: "border-yellow-500/30 text-yellow-400 hover:border-yellow-500/50",
-    green: "border-green-500/30 text-green-400 hover:border-green-500/50"
+    green: "border-green-500/30 text-green-400 hover:border-green-500/50",
+    red: "border-red-500/30 text-red-400 hover:border-red-500/50"
   };
 
   const hasActiveValue = multi && Array.isArray(value) ? value.length > 0 : value !== 'All';
@@ -269,6 +270,55 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
     { v: 'Western', l: 'Western' },
   ];
 
+  // Anime Specific Themes & Tags
+  const animeThemes = [
+    { v: 'All', l: 'All Themes' },
+    { v: 'Gore', l: 'Gore / Splatter' },
+    { v: 'Isekai', l: 'Isekai (Other World)' },
+    { v: 'Shonen', l: 'Shonen' },
+    { v: 'Seinen', l: 'Seinen' },
+    { v: 'Shojo', l: 'Shojo' },
+    { v: 'Mecha', l: 'Mecha' },
+    { v: 'Psychological', l: 'Psychological' },
+    { v: 'Slice of Life', l: 'Slice of Life' },
+    { v: 'Ecchi', l: 'Ecchi' },
+    { v: 'Harem', l: 'Harem' },
+    { v: 'Reverse Harem', l: 'Reverse Harem' },
+    { v: 'School', l: 'School Life' },
+    { v: 'Sports', l: 'Sports' },
+    { v: 'Supernatural', l: 'Supernatural' },
+    { v: 'Dark Fantasy', l: 'Dark Fantasy' },
+    { v: 'Cyberpunk', l: 'Cyberpunk' },
+    { v: 'Post-Apocalyptic', l: 'Post-Apocalyptic' },
+    { v: 'Military', l: 'Military' },
+    { v: 'Iyashikei', l: 'Healing (Iyashikei)' },
+  ];
+
+  // General Themes for Movies/Shows
+  const generalThemes = [
+    { v: 'All', l: 'All Themes' },
+    { v: 'Gore', l: 'Gore / Extreme Violence' },
+    { v: 'Slasher', l: 'Slasher' },
+    { v: 'Psychological Thriller', l: 'Psychological Thriller' },
+    { v: 'Dark Comedy', l: 'Dark Comedy' },
+    { v: 'Noir', l: 'Noir / Neo-Noir' },
+    { v: 'Survival', l: 'Survival' },
+    { v: 'Zombie', l: 'Zombie' },
+    { v: 'Cyberpunk', l: 'Cyberpunk' },
+    { v: 'Space Opera', l: 'Space Opera' },
+    { v: 'Superhero', l: 'Superhero' },
+    { v: 'Time Travel', l: 'Time Travel' },
+    { v: 'Coming of Age', l: 'Coming of Age' },
+    { v: 'Biographical', l: 'Biographical' },
+    { v: 'Period Piece', l: 'Period Piece' },
+    { v: 'Satire', l: 'Satire' },
+    { v: 'Found Footage', l: 'Found Footage' },
+    { v: 'Martial Arts', l: 'Martial Arts' },
+  ];
+
+  // Select theme list based on category
+  const activeThemeList = category === MediaType.ANIME ? animeThemes : generalThemes;
+
   // Extended Country List
   const countries = [
     { v: 'All', l: 'All Countries' },
@@ -331,7 +381,8 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
       filters.maturityRating.length > 0,
       filters.minRating !== 'All',
       filters.audioType.length > 0,
-      filters.animeFormat.length > 0
+      filters.animeFormat.length > 0,
+      filters.themes.length > 0
   ].filter(Boolean).length;
 
   return (
@@ -474,6 +525,17 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
                     )}
 
                     <CustomSelect 
+                      label="Themes & Tags" 
+                      value={filters.themes} 
+                      onChange={(v) => handleChange('themes', v)} 
+                      options={activeThemeList}
+                      searchable
+                      multi
+                      colorTheme="red"
+                      icon={<Tag size={12} />}
+                    />
+
+                    <CustomSelect 
                       label="Genre" 
                       value={filters.genre} 
                       onChange={(v) => handleChange('genre', v)} 
@@ -544,7 +606,8 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
                                 maturityRating: [],
                                 minRating: 'All',
                                 audioType: [],
-                                animeFormat: []
+                                animeFormat: [],
+                                themes: []
                             }))}
                             className="px-3 py-2 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium hover:bg-red-500/20 hover:text-red-300 transition-colors backdrop-blur-sm"
                         >
