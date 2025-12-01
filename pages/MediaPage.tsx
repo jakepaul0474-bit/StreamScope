@@ -82,6 +82,9 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
         setError(null);
     }
 
+    // UX DELAY: Ensure the loading state is visible for at least 800ms so the user knows the button clicked
+    await new Promise(resolve => setTimeout(resolve, 800));
+
     // Safety timeout - Increased to 120s to allow for Rate Limit Backoff (60s+)
     const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error("Request timed out")), 120000)
@@ -211,7 +214,7 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
                     </div>
                     <button 
                         onClick={loadInitialData}
-                        className="w-full py-3 bg-primary hover:bg-blue-600 text-white rounded-xl font-bold transition-all shadow-lg"
+                        className="w-full py-3 bg-primary hover:bg-blue-600 text-white rounded-xl font-bold transition-all shadow-lg active:scale-95"
                     >
                         I've Added the Key, Try Again
                     </button>

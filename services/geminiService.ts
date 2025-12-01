@@ -1,10 +1,20 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { FilterState, MediaItem, MediaType, Episode } from "../types";
 
-// Safe access to process.env to prevent crashes in browser environments without polyfills
-const apiKey = (typeof process !== 'undefined' && process.env && process.env.API_KEY) 
-  ? process.env.API_KEY 
-  : '';
+// Safe access to process.env OR import.meta.env to prevent crashes in browser environments
+const getEnvVar = (key: string) => {
+    // Check Vite native env first
+    if (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env[`VITE_${key}`]) {
+        return (import.meta as any).env[`VITE_${key}`];
+    }
+    // Check process.env (Vite define or Node)
+    if (typeof process !== 'undefined' && process.env && process.env[key]) {
+        return process.env[key];
+    }
+    return '';
+};
+
+const apiKey = getEnvVar('API_KEY');
 
 // Lazy initialization to prevent top-level crashes if the SDK has issues with empty keys
 let aiInstance: GoogleGenAI | null = null;
