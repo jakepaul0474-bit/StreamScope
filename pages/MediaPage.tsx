@@ -1,26 +1,34 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { FilterState, MediaItem, MediaType } from '../types';
 import { fetchMediaItems } from '../services/geminiService';
 import FilterBar from '../components/FilterBar';
 import MediaCard from '../components/MediaCard';
 import { AlertTriangle, RefreshCcw, Key, Clock } from 'lucide-react';
+import { useMediaContext } from '../context/MediaContext';
 
 interface MediaPageProps {
   category: MediaType | 'All';
 }
 
 const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
-  const [items, setItems] = useState<MediaItem[]>([]);
-  const [loading, setLoading] = useState(false); // Initial load state
-  const [loadingMore, setLoadingMore] = useState(false); // Infinite scroll state
+  const { getCachedState, setCachedState } = useMediaContext();
+  const cached = getCachedState(category);
+
+  // Initialize state from cache if available
+  const [items, setItems] = useState<MediaItem[]>(cached?.items || []);
+  const [loading, setLoading] = useState(!cached); // Only load if no cache
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(cached?.page || 1);
+  const [hasMore, setHasMore] = useState(cached?.hasMore ?? true);
   
   const observerTarget = useRef<HTMLDivElement>(null);
   const isMounted = useRef(true);
+  
+  // Track if we should skip the initial fetch effect because we restored data
+  const skipInitialFetch = useRef(!!cached);
 
-  const [filters, setFilters] = useState<FilterState>({
+  const [filters, setFilters] = useState<FilterState>(cached?.filters || {
     searchQuery: '',
     genre: [], 
     year: 'All',
@@ -29,17 +37,43 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
     minRating: 'All',
     audioType: [], 
     animeFormat: [], 
-    themes: [], // New Themes/Tags array
+    themes: [],
     sortBy: 'trending',
   });
+
+  // Restore Scroll Position synchronously before paint
+  useLayoutEffect(() => {
+    if (cached?.scrollY) {
+      window.scrollTo(0, cached.scrollY);
+    }
+  }, []); // Run once on mount
 
   useEffect(() => {
       isMounted.current = true;
       return () => { isMounted.current = false; };
   }, []);
 
+  // Save state on unmount
+  useEffect(() => {
+    return () => {
+      setCachedState(category, {
+        items,
+        filters,
+        page,
+        hasMore,
+        scrollY: window.scrollY
+      });
+    };
+  }, [items, filters, page, hasMore, category, setCachedState]);
+
   // Effect for Filter Changes (Reset)
   useEffect(() => {
+    // If we just restored from cache, skip this effect to prevent wiping data
+    if (skipInitialFetch.current) {
+        skipInitialFetch.current = false;
+        return;
+    }
+
     setLoading(true);
     setItems([]);
     setError(null);
