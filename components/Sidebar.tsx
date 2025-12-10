@@ -21,16 +21,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       {/* Mobile Backdrop */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm"
+          className="fixed inset-0 bg-black/40 z-40 md:hidden backdrop-blur-md"
           onClick={onClose}
         />
       )}
 
-      {/* Sidebar Container - Liquid Glass Gradient */}
+      {/* Sidebar Container - Liquid Glass Gradient - Higher Transparency */}
       <div className={`
         fixed left-0 top-0 h-screen flex flex-col z-50 transition-transform duration-300
         w-64 md:w-20 lg:w-64
-        bg-gradient-to-b from-white/10 to-transparent backdrop-blur-2xl border-r border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.1)]
+        bg-white/[0.02] backdrop-blur-3xl border-r border-white/[0.05] shadow-[0_4px_30px_rgba(0,0,0,0.1)]
         ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0
       `}>
         <div className="p-6 flex items-center justify-between md:justify-center lg:justify-start gap-3">
@@ -40,7 +40,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           </div>
           
           {/* Mobile Close Button */}
-          <button onClick={onClose} className="md:hidden text-slate-400 hover:text-white transition-colors">
+          <button onClick={onClose} className="md:hidden text-slate-400 hover:text-white transition-colors bg-white/5 p-1 rounded-full border border-white/10">
             <X size={24} />
           </button>
         </div>
@@ -54,8 +54,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               className={({ isActive }) =>
                 `flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 group relative overflow-hidden ${
                   isActive
-                    ? 'bg-gradient-to-r from-white/15 to-white/5 text-white font-medium border border-white/10 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)] backdrop-blur-md'
-                    : 'text-slate-400 hover:bg-white/5 hover:text-white hover:border-white/5 border border-transparent hover:backdrop-blur-sm'
+                    ? 'bg-white/10 text-white font-medium border border-white/20 shadow-[0_0_15px_rgba(255,255,255,0.05)] backdrop-blur-xl'
+                    : 'text-slate-400 hover:bg-white/5 hover:text-white hover:border-white/10 border border-transparent hover:backdrop-blur-lg'
                 }`
               }
             >
@@ -66,11 +66,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                     <span className="md:hidden lg:block">{item.label}</span>
                   </div>
                   {isActive && (
-                      <div className="absolute inset-0 bg-primary/20 blur-xl rounded-xl"></div>
+                      <div className="absolute inset-0 bg-primary/10 blur-xl rounded-xl"></div>
                   )}
                   
                   {/* Tooltip for collapsed desktop sidebar */}
-                  <div className="hidden md:block lg:hidden absolute left-full top-2 ml-4 px-3 py-1 bg-slate-900/60 backdrop-blur-xl text-white text-xs rounded-lg border border-white/10 opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-xl transition-opacity">
+                  <div className="hidden md:block lg:hidden absolute left-full top-2 ml-4 px-3 py-1 bg-white/10 backdrop-blur-xl text-white text-xs rounded-lg border border-white/20 opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-xl transition-opacity">
                     {item.label}
                   </div>
                 </>
@@ -79,8 +79,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-white/5">
-          <div className="bg-gradient-to-br from-white/5 to-transparent p-4 rounded-xl md:hidden lg:block backdrop-blur-md border border-white/5 hover:bg-white/10 transition-colors">
+        <div className="p-4 border-t border-white/[0.05]">
+          <div className="bg-white/[0.03] p-4 rounded-xl md:hidden lg:block backdrop-blur-xl border border-white/[0.05] hover:bg-white/10 transition-colors shadow-inner">
               <p className="text-xs text-slate-400 text-center">Powered by Gemini 2.5</p>
           </div>
         </div>

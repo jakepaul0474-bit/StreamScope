@@ -38,6 +38,8 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
     audioType: [], 
     animeFormat: [], 
     themes: [],
+    aspectRatio: [],
+    contentDescriptors: [],
     sortBy: 'trending',
   });
 

@@ -8,8 +8,8 @@ const WatchlistPage: React.FC = () => {
 
   return (
     <div className="min-h-screen pl-0 md:pl-20 lg:pl-64 transition-all duration-300">
-      {/* Header - Reusing FilterBar style somewhat but simpler */}
-      <div className="w-full bg-slate-900/80 backdrop-blur-xl border-b border-white/10 sticky top-0 z-40 p-4 shadow-2xl">
+      {/* Header - Reusing FilterBar style somewhat but simpler - Increased Transparency */}
+      <div className="w-full bg-slate-950/50 backdrop-blur-3xl border-b border-white/[0.05] sticky top-0 z-40 p-4 shadow-glass">
           <div className="max-w-8xl mx-auto">
              <h2 className="text-2xl font-bold text-white flex items-center gap-3">
                 <div className="p-2 bg-accent/20 rounded-lg border border-accent/20 text-accent">

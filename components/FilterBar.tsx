@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Filter, Search, HelpCircle, X, ChevronDown, ChevronUp, SlidersHorizontal, Check, Square, CheckSquare, Loader2, Tag } from 'lucide-react';
+import { Filter, Search, HelpCircle, X, ChevronDown, ChevronUp, SlidersHorizontal, Check, Square, CheckSquare, Loader2, Tag, Monitor, ShieldAlert } from 'lucide-react';
 import { FilterState, MediaType } from '../types';
 
 interface FilterBarProps {
@@ -18,7 +18,7 @@ interface CustomSelectProps {
   icon?: React.ReactNode;
   searchable?: boolean;
   multi?: boolean;
-  colorTheme?: 'default' | 'accent' | 'yellow' | 'green' | 'red';
+  colorTheme?: 'default' | 'accent' | 'yellow' | 'green' | 'red' | 'purple';
 }
 
 const CustomSelect: React.FC<CustomSelectProps> = ({ 
@@ -100,13 +100,14 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
     }
   }
   
-  // Theme styles
+  // Theme styles - Updated for glass
   const themeStyles = {
-    default: "border-white/10 text-slate-200 hover:border-white/20",
-    accent: "border-accent/30 text-accent hover:border-accent/50",
-    yellow: "border-yellow-500/30 text-yellow-400 hover:border-yellow-500/50",
-    green: "border-green-500/30 text-green-400 hover:border-green-500/50",
-    red: "border-red-500/30 text-red-400 hover:border-red-500/50"
+    default: "border-white/10 text-slate-200 hover:border-white/20 hover:bg-white/5",
+    accent: "border-accent/30 text-accent hover:border-accent/50 hover:bg-accent/5",
+    yellow: "border-yellow-500/30 text-yellow-400 hover:border-yellow-500/50 hover:bg-yellow-500/5",
+    green: "border-green-500/30 text-green-400 hover:border-green-500/50 hover:bg-green-500/5",
+    red: "border-red-500/30 text-red-400 hover:border-red-500/50 hover:bg-red-500/5",
+    purple: "border-purple-500/30 text-purple-400 hover:border-purple-500/50 hover:bg-purple-500/5",
   };
 
   const hasActiveValue = multi && Array.isArray(value) ? value.length > 0 : value !== 'All';
@@ -119,11 +120,11 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
         className={`
           flex items-center justify-between gap-2 
           min-w-[130px] px-3 py-2 rounded-xl
-          bg-slate-900/40 backdrop-blur-md
+          bg-white/[0.03] backdrop-blur-xl
           border transition-all duration-300
-          text-xs font-medium shadow-sm hover:shadow-md hover:bg-slate-800/50
+          text-xs font-medium shadow-sm hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]
           group
-          ${hasActiveValue ? themeStyles[colorTheme].replace('text-slate-200', 'text-white bg-slate-800/60') : themeStyles[colorTheme]}
+          ${hasActiveValue ? themeStyles[colorTheme].replace('text-slate-200', 'text-white bg-white/10') : themeStyles[colorTheme]}
         `}
       >
         <div className="flex items-center gap-2 truncate">
@@ -140,7 +141,7 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 w-64 max-h-80 bg-[#0a0f1d]/95 backdrop-blur-3xl border border-white/10 rounded-xl shadow-2xl z-[100] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-left">
+        <div className="absolute top-full left-0 mt-2 w-64 max-h-80 bg-[#0a0f1d]/80 backdrop-blur-3xl border border-white/10 rounded-xl shadow-2xl z-[100] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-left">
           
           {/* Search Input */}
           {searchable && (
@@ -152,7 +153,7 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
                   placeholder="Search..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-slate-900/50 border border-white/5 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-primary/50 transition-colors placeholder-slate-600"
+                  className="w-full bg-white/5 border border-white/5 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-white/20 transition-colors placeholder-slate-600"
                   autoFocus
                 />
               </div>
@@ -176,7 +177,7 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
                     className={`
                       w-full text-left px-3 py-2 rounded-lg text-sm transition-all duration-200 flex items-center justify-between
                       ${(active || activeAll)
-                        ? 'bg-primary/20 text-white font-medium' 
+                        ? 'bg-white/10 text-white font-medium border border-white/5 shadow-inner' 
                         : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}
                     `}
                   >
@@ -241,6 +242,7 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
 
   const sortOptions = [
       { value: 'trending', label: 'Trending' },
+      { value: 'trending_week', label: 'Trending This Week' },
       { value: 'popular', label: 'Popular' },
       { value: 'in_theaters', label: 'In Theaters' },
       { value: 'newest', label: 'Newest' },
@@ -316,8 +318,31 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
     { v: 'Martial Arts', l: 'Martial Arts' },
   ];
 
+  // Specific Content Descriptors (Maturity Types)
+  const contentDescriptors = [
+    { v: 'All', l: 'All Content' },
+    { v: 'Nudity', l: 'Nudity / Naked' },
+    { v: 'Semi-Nudity', l: 'Semi-Nudity' },
+    { v: 'Foul Language', l: 'Foul Language' },
+    { v: 'Sexual Content', l: 'Sexual Content' },
+    { v: 'Violence', l: 'Violence' },
+    { v: 'Abuse', l: 'Abuse / Harassment' },
+    { v: 'Drug Use', l: 'Drug Use' },
+    { v: 'Gore', l: 'Gore' },
+    { v: 'Self-Harm', l: 'Self-Harm' },
+  ];
+
   // Select theme list based on category
   const activeThemeList = category === MediaType.ANIME ? animeThemes : generalThemes;
+
+  // Aspect Ratio List
+  const aspectRatios = [
+    { v: 'All', l: 'All Ratios' },
+    { v: 'IMAX', l: 'IMAX' },
+    { v: 'Widescreen', l: 'Widescreen (2.39:1)' },
+    { v: 'Standard', l: 'Standard (16:9)' },
+    { v: '4:3', l: 'Classic (4:3)' },
+  ];
 
   // Extended Country List
   const countries = [
@@ -382,27 +407,30 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
       filters.minRating !== 'All',
       filters.audioType.length > 0,
       filters.animeFormat.length > 0,
-      filters.themes.length > 0
+      filters.themes.length > 0,
+      (filters.aspectRatio && filters.aspectRatio.length > 0),
+      filters.contentDescriptors.length > 0
   ].filter(Boolean).length;
 
   return (
-    <div className="w-full bg-gradient-to-b from-slate-900/10 to-transparent backdrop-blur-xl border-b border-white/5 sticky top-0 z-40 shadow-sm transition-all duration-300">
+    // Updated container background to be white/[0.02] with high blur for extreme transparency
+    <div className="w-full bg-white/[0.02] backdrop-blur-3xl border-b border-white/[0.05] sticky top-0 z-40 shadow-[0_4px_30px_rgba(0,0,0,0.1)] transition-all duration-300">
       <div className="max-w-7xl mx-auto p-4 relative">
         
         {/* Top Row: Search and Toggle */}
         <div className="flex gap-3 items-center">
           
-          {/* Search Input - Compact & Pill Shaped */}
+          {/* Search Input - Compact & Pill Shaped - Glass effect */}
           {/* Added ml-12 on mobile to avoid overlap with hamburger menu */}
           <div className="relative flex-1 group z-50 max-w-2xl ml-12 md:ml-0">
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-accent/20 rounded-full blur-md opacity-0 group-focus-within:opacity-100 transition-opacity duration-500"></div>
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-primary z-10" size={16} />
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-accent/10 rounded-full blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500"></div>
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-white z-10" size={16} />
             <input
               type="text"
               placeholder={`Search ${category === 'All' ? 'movies, shows...' : category}...`}
               value={filters.searchQuery}
               onChange={(e) => handleChange('searchQuery', e.target.value)}
-              className="w-full bg-slate-900/30 hover:bg-slate-900/40 border border-white/10 focus:border-white/20 text-white pl-11 pr-10 py-2 rounded-full backdrop-blur-md shadow-inner focus:bg-slate-800/60 focus:outline-none transition-all placeholder-slate-400/50 text-sm relative z-0"
+              className="w-full bg-white/[0.03] hover:bg-white/10 border border-white/10 focus:border-white/20 text-white pl-11 pr-10 py-2 rounded-full backdrop-blur-xl shadow-inner focus:bg-white/10 focus:outline-none transition-all placeholder-slate-400/50 text-sm relative z-0"
             />
             
             {/* Help Icon Toggle */}
@@ -416,7 +444,7 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
 
             {/* Advanced Search Tooltip */}
             <div className={`
-                absolute top-full left-0 right-0 mt-3 p-4 rounded-2xl border border-white/10 bg-[#0a0f1d]/90 backdrop-blur-3xl shadow-2xl transition-all duration-300 origin-top
+                absolute top-full left-0 right-0 mt-3 p-4 rounded-2xl border border-white/10 bg-[#0a0f1d]/80 backdrop-blur-3xl shadow-2xl transition-all duration-300 origin-top
                 ${showSearchHelp ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'}
             `}>
                 <h4 className="text-[10px] font-bold text-primary uppercase tracking-widest mb-3 border-b border-white/5 pb-2">Search Syntax</h4>
@@ -451,15 +479,15 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
             onClick={() => setIsExpanded(!isExpanded)}
             disabled={isLoading}
             className={`
-                flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all duration-300 border select-none backdrop-blur-md text-sm
+                flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all duration-300 border select-none backdrop-blur-xl text-sm
                 ${isExpanded 
-                    ? 'bg-gradient-to-r from-primary/80 to-primary/60 text-white border-primary/50 shadow-[0_0_15px_rgba(59,130,246,0.3)]' 
-                    : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10 hover:text-white'}
+                    ? 'bg-white/10 text-white border-white/20 shadow-[0_0_20px_rgba(255,255,255,0.1)]' 
+                    : 'bg-white/[0.03] text-slate-300 border-white/10 hover:bg-white/10 hover:text-white'}
                 ${isLoading ? 'opacity-80 cursor-wait' : ''}
             `}
           >
             {isLoading ? (
-                <Loader2 size={16} className="animate-spin text-primary" />
+                <Loader2 size={16} className="animate-spin text-white" />
             ) : (
                 <SlidersHorizontal size={16} />
             )}
@@ -484,17 +512,17 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
         `}>
            <div className="min-h-0 space-y-4 pb-4">
                 {/* Sort Options */}
-                <div className="flex flex-col md:flex-row gap-3 items-start md:items-center pb-2 border-b border-white/5">
+                <div className="flex flex-col md:flex-row gap-3 items-start md:items-center pb-2 border-b border-white/[0.05]">
                     <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">Sort By</span>
                     <div className="flex items-center gap-2 overflow-x-auto w-full no-scrollbar mask-image-linear-gradient pb-1">
                         {sortOptions.map((option) => (
                             <button
                                 key={option.value}
                                 onClick={() => handleChange('sortBy', option.value as any)}
-                                className={`px-4 py-1.5 rounded-full text-xs font-medium capitalize transition-all whitespace-nowrap border flex-shrink-0 backdrop-blur-sm ${
+                                className={`px-4 py-1.5 rounded-full text-xs font-medium capitalize transition-all whitespace-nowrap border flex-shrink-0 backdrop-blur-xl ${
                                     filters.sortBy === option.value 
-                                    ? 'bg-primary/20 text-primary border-primary/50 shadow-[0_0_10px_rgba(59,130,246,0.2)]' 
-                                    : 'bg-white/5 text-slate-400 border-white/5 hover:bg-white/10 hover:text-white hover:border-white/10'
+                                    ? 'bg-white/10 text-white border-white/20 shadow-[0_0_15px_rgba(255,255,255,0.1)]' 
+                                    : 'bg-white/[0.03] text-slate-400 border-white/5 hover:bg-white/10 hover:text-white hover:border-white/10'
                                 }`}
                             >
                                 {option.label}
@@ -505,8 +533,8 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
 
                 {/* Filter Dropdowns - Using CustomSelect */}
                 <div className="flex flex-wrap gap-3 items-center">
-                    <div className="p-2 bg-white/5 rounded-full border border-white/10 mr-1 backdrop-blur-sm">
-                        <Filter size={14} className="text-primary" />
+                    <div className="p-2 bg-white/[0.03] rounded-full border border-white/10 mr-1 backdrop-blur-xl shadow-sm">
+                        <Filter size={14} className="text-white" />
                     </div>
                     
                     {category === MediaType.ANIME && (
@@ -534,6 +562,18 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
                       colorTheme="red"
                       icon={<Tag size={12} />}
                     />
+                    
+                    {(category === MediaType.MOVIE || category === 'All') && (
+                        <CustomSelect 
+                            label="Aspect Ratio" 
+                            value={filters.aspectRatio || []} 
+                            onChange={(v) => handleChange('aspectRatio', v)} 
+                            options={aspectRatios}
+                            multi
+                            colorTheme="purple"
+                            icon={<Monitor size={12} />}
+                        />
+                    )}
 
                     <CustomSelect 
                       label="Genre" 
@@ -559,6 +599,16 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
                       onChange={(v) => handleChange('maturityRating', v)} 
                       options={maturityRatings}
                       colorTheme="green"
+                      multi
+                    />
+                    
+                    <CustomSelect 
+                      label="Content" 
+                      value={filters.contentDescriptors} 
+                      onChange={(v) => handleChange('contentDescriptors', v)} 
+                      options={contentDescriptors}
+                      colorTheme="red"
+                      icon={<ShieldAlert size={12} />}
                       multi
                     />
 
@@ -607,7 +657,9 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
                                 minRating: 'All',
                                 audioType: [],
                                 animeFormat: [],
-                                themes: []
+                                themes: [],
+                                aspectRatio: [],
+                                contentDescriptors: []
                             }))}
                             className="px-3 py-2 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium hover:bg-red-500/20 hover:text-red-300 transition-colors backdrop-blur-sm"
                         >
@@ -621,7 +673,7 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
         {/* Global Loading Line at the bottom */}
         {isLoading && (
             <div className="absolute bottom-0 left-0 right-0 h-[1px] w-full overflow-hidden">
-                <div className="animate-[shimmer_2s_infinite] h-full w-full bg-gradient-to-r from-transparent via-primary to-transparent" />
+                <div className="animate-[shimmer_2s_infinite] h-full w-full bg-gradient-to-r from-transparent via-white/50 to-transparent" />
             </div>
         )}
       </div>

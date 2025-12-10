@@ -1,10 +1,145 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Star, Calendar, Globe, MonitorPlay, ShieldAlert, Mic, Info, ImageOff, Clock, ChevronDown, PlayCircle, Heart, Check, Settings2, X, ExternalLink, Activity, Award, Users } from 'lucide-react';
-import { MediaItem, MediaType, Episode } from '../types';
+import { ArrowLeft, Star, Calendar, Globe, MonitorPlay, ShieldAlert, Mic, Info, ImageOff, Clock, ChevronDown, PlayCircle, Heart, Check, Settings2, X, ExternalLink, Activity, Award, Users, Languages } from 'lucide-react';
+import { MediaItem, MediaType, Episode, ContentRatingDetail } from '../types';
 import { fetchMediaDetails, fetchRecommendations, fetchSeasonEpisodes, fetchTrailerUrl } from '../services/geminiService';
 import MediaCard from './MediaCard';
 import { useWatchlist } from '../hooks/useWatchlist';
+
+// Helper component for Platform Item with independent image state and fallback
+const PlatformItem: React.FC<{ platform: string; title: string }> = ({ platform, title }) => {
+    const [imgSrc, setImgSrc] = useState<string>('');
+    const [error, setError] = useState(false);
+
+    const getPlatformDomain = (platformName: string) => {
+        const lower = platformName.toLowerCase().trim();
+        
+        if (lower.includes('netflix')) return 'netflix.com';
+        if (lower.includes('prime') || lower.includes('amazon')) return 'primevideo.com';
+        if (lower.includes('disney')) return 'disneyplus.com';
+        if (lower.includes('hulu')) return 'hulu.com';
+        if (lower.includes('hbo') || lower.includes('max')) return 'max.com';
+        if (lower.includes('apple') && lower.includes('tv')) return 'tv.apple.com';
+        if (lower.includes('peacock')) return 'peacocktv.com';
+        if (lower.includes('paramount')) return 'paramountplus.com';
+        if (lower.includes('youtube')) return 'youtube.com';
+        if (lower.includes('crunchyroll')) return 'crunchyroll.com';
+        if (lower.includes('zee5')) return 'zee5.com';
+        if (lower.includes('hotstar')) return 'hotstar.com';
+        if (lower.includes('jio')) return 'jiocinema.com';
+        if (lower.includes('sony')) return 'sonyliv.com';
+        if (lower.includes('bilibili')) return 'bilibili.tv';
+        if (lower.includes('voot')) return 'voot.com';
+        if (lower.includes('discovery')) return 'discoveryplus.com';
+        if (lower.includes('tubi')) return 'tubitv.com';
+        if (lower.includes('pluto')) return 'pluto.tv';
+        if (lower.includes('vudu')) return 'vudu.com';
+        if (lower.includes('google')) return 'play.google.com';
+        if (lower.includes('mubi')) return 'mubi.com';
+        if (lower.includes('starz')) return 'starz.com';
+        if (lower.includes('showtime')) return 'showtime.com';
+        if (lower.includes('britbox')) return 'britbox.com';
+        if (lower.includes('acorn')) return 'acorn.tv';
+        if (lower.includes('funimation')) return 'funimation.com';
+        if (lower.includes('hidive')) return 'hidive.com';
+        if (lower.includes('viki')) return 'viki.com';
+        if (lower.includes('iqiyi')) return 'iq.com';
+        if (lower.includes('lionsgate')) return 'lionsgateplay.com';
+        if (lower.includes('sun nxt')) return 'sunnxt.com';
+        if (lower.includes('aha')) return 'aha.video';
+        if (lower.includes('eros')) return 'erosnow.com';
+        if (lower.includes('alt')) return 'altbalaji.com';
+        if (lower.includes('mx')) return 'mxplayer.in';
+
+        return null;
+    };
+
+    const domain = getPlatformDomain(platform);
+
+    useEffect(() => {
+        if (domain) {
+             setImgSrc(`https://logo.clearbit.com/${domain}?size=60`);
+             setError(false);
+        } else {
+             setError(true);
+        }
+    }, [domain, platform]);
+
+    const handleError = () => {
+        if (imgSrc.includes('clearbit')) {
+            // Fallback to Google
+            setImgSrc(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`);
+        } else {
+            setError(true);
+        }
+    };
+
+    return (
+        <a 
+            href={`https://www.google.com/search?q=watch ${title} on ${platform}`} 
+            target="_blank" 
+            rel="noreferrer"
+            className="group relative block w-8 h-8 md:w-10 md:h-10 bg-white/10 rounded-lg md:rounded-xl overflow-hidden border border-white/10 hover:border-white/30 hover:scale-105 transition-all shadow-md"
+            title={platform}
+        >
+            {!error && domain ? (
+                 <img 
+                    src={imgSrc} 
+                    alt={platform} 
+                    className="w-full h-full object-cover" 
+                    onError={handleError}
+                    referrerPolicy="no-referrer"
+                    loading="lazy"
+                 />
+            ) : null}
+            
+            {/* Fallback Text */}
+            <div className={`w-full h-full flex items-center justify-center bg-slate-800 text-[10px] font-bold text-slate-300 ${!error && domain ? 'hidden' : ''}`}>
+                {platform.slice(0,1).toUpperCase()}
+            </div>
+
+            <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors"></div>
+        </a>
+    );
+};
+
+// Helper Component for Individual Content Rating Rows
+const ContentRatingItem: React.FC<{ detail: ContentRatingDetail }> = ({ detail }) => {
+    const [isOpen, setIsOpen] = useState(false);
+
+    const getSeverityColor = (severity: string) => {
+      const s = severity?.toLowerCase() || '';
+      if (s.includes('severe') || s.includes('high')) return 'bg-red-500/20 text-red-400 border-red-500/30';
+      if (s.includes('moderate') || s.includes('medium')) return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
+      if (s.includes('mild') || s.includes('low')) return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+      return 'bg-green-500/20 text-green-400 border-green-500/30';
+    };
+
+    return (
+        <div className="bg-white/5 rounded-xl border border-white/5 overflow-hidden transition-all duration-200 hover:bg-white/[0.07]">
+            <button 
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full flex items-center justify-between p-3.5 text-left focus:outline-none group"
+            >
+                <span className="font-semibold text-slate-200 text-sm group-hover:text-white transition-colors">{detail.category}</span>
+                <div className="flex items-center gap-3">
+                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded border uppercase tracking-wider min-w-[70px] text-center ${getSeverityColor(detail.severity)}`}>
+                        {detail.severity}
+                    </span>
+                    <ChevronDown size={16} className={`text-slate-500 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                </div>
+            </button>
+            <div className={`transition-all duration-300 ease-in-out bg-black/20 ${isOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
+                <div className="px-4 pb-4 pt-2">
+                    <div className="h-px w-full bg-white/5 mb-3"></div>
+                    <p className="text-xs text-slate-400 leading-relaxed font-light">
+                        {detail.description || "No specific scenes described for this category."}
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 export const DetailsView: React.FC = () => {
   const { type, title } = useParams<{ type: string; title: string }>();
@@ -25,14 +160,17 @@ export const DetailsView: React.FC = () => {
 
   const [expandedSeason, setExpandedSeason] = useState<number | null>(null);
   const [episodesCache, setEpisodesCache] = useState<Record<number, Episode[]>>({});
-  const [loadingEpisodes, setLoadingEpisodes] = useState(false);
+  // Changed to track which specific season is loading
+  const [loadingSeason, setLoadingSeason] = useState<number | null>(null);
   
   const [showTrailerModal, setShowTrailerModal] = useState(false);
   const [trailerUrl, setTrailerUrl] = useState<string | null>(null);
   const [loadingTrailer, setLoadingTrailer] = useState(false);
+  
+  const [isRatingExpanded, setIsRatingExpanded] = useState(false);
 
-  // Updated to support 'cast' type for actor photos
-  const getBingUrl = (query: string, type: 'poster' | 'backdrop' | 'cast') => {
+  // Updated to support 'cast' and 'episode' types
+  const getBingUrl = (query: string, type: 'poster' | 'backdrop' | 'cast' | 'episode') => {
      let aspect = '';
      let suffix = '';
      
@@ -45,6 +183,9 @@ export const DetailsView: React.FC = () => {
      } else if (type === 'cast') {
          aspect = '&w=200&h=200&c=7&rs=1'; // Face focus crop
          suffix = ' face';
+     } else if (type === 'episode') {
+         aspect = '&w=320&h=180&c=7&rs=1'; 
+         suffix = ' episode still';
      }
 
      return `https://tse2.mm.bing.net/th?q=${encodeURIComponent(query + suffix)}&c=7&rs=1${aspect}&p=0`;
@@ -52,34 +193,6 @@ export const DetailsView: React.FC = () => {
 
   const getProxiedUrl = (url: string) => 
     `https://wsrv.nl/?url=${encodeURIComponent(url)}&output=webp`;
-
-  const getPlatformLogo = (platform: string) => {
-    const map: Record<string, string> = {
-        'Netflix': 'netflix.com',
-        'Prime Video': 'primevideo.com',
-        'Amazon Prime': 'primevideo.com',
-        'Disney+': 'disneyplus.com',
-        'Hulu': 'hulu.com',
-        'Max': 'max.com',
-        'HBO Max': 'max.com',
-        'Apple TV+': 'tv.apple.com',
-        'Peacock': 'peacocktv.com',
-        'Paramount+': 'paramountplus.com',
-        'YouTube Premium': 'youtube.com',
-        'Crunchyroll': 'crunchyroll.com',
-        'Zee5': 'zee5.com',
-        'Hotstar': 'hotstar.com',
-        'Disney+ Hotstar': 'hotstar.com',
-        'JioCinema': 'jiocinema.com',
-        'SonyLIV': 'sonyliv.com',
-        'Bilibili': 'bilibili.tv',
-        'Voot': 'voot.com',
-        'Discovery+': 'discoveryplus.com',
-    };
-    const domain = map[platform];
-    if (domain) return `https://logo.clearbit.com/${domain}?size=60`;
-    return null;
-  };
 
   const getYoutubeEmbedUrl = (url?: string | null) => {
     if (!url) return null;
@@ -110,7 +223,9 @@ export const DetailsView: React.FC = () => {
         setIsPosterBing(false);
         setExpandedSeason(null);
         setEpisodesCache({});
+        setLoadingSeason(null);
         setTrailerUrl(null);
+        setIsRatingExpanded(false);
 
         // Fetch main details and recommendations in parallel
         const [detailsData, recsData] = await Promise.all([
@@ -189,11 +304,22 @@ export const DetailsView: React.FC = () => {
 
     setExpandedSeason(seasonNumber);
 
-    if (!episodesCache[seasonNumber] && item) {
-      setLoadingEpisodes(true);
-      const episodes = await fetchSeasonEpisodes(item.title, seasonNumber);
-      setEpisodesCache(prev => ({ ...prev, [seasonNumber]: episodes }));
-      setLoadingEpisodes(false);
+    // If already cached, don't fetch again
+    if (episodesCache[seasonNumber]) {
+        return;
+    }
+
+    if (item) {
+      setLoadingSeason(seasonNumber);
+      try {
+          const episodes = await fetchSeasonEpisodes(item.title, seasonNumber);
+          setEpisodesCache(prev => ({ ...prev, [seasonNumber]: episodes }));
+      } catch (e) {
+          console.error("Failed to fetch episodes", e);
+      } finally {
+          // Only clear loading if the current expanded season matches (handle rapid clicks)
+          setLoadingSeason(prev => prev === seasonNumber ? null : prev);
+      }
     }
   };
 
@@ -209,8 +335,8 @@ export const DetailsView: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen text-white">
-        <div className="flex flex-col items-center gap-4 p-8 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-2xl rounded-2xl border border-white/5">
-             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary shadow-lg"></div>
+        <div className="flex flex-col items-center gap-4 p-8 bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/10 shadow-glass">
+             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white/80 shadow-lg"></div>
              <p className="text-slate-300 animate-pulse font-medium">Fetching details...</p>
         </div>
       </div>
@@ -221,26 +347,32 @@ export const DetailsView: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen text-white gap-4">
         <p className="text-xl font-medium text-slate-300">Media not found.</p>
-        <button onClick={() => navigate(-1)} className="px-6 py-2 bg-white/10 hover:bg-white/20 rounded-xl backdrop-blur-md transition-colors text-primary border border-white/10">Go Back</button>
+        <button onClick={() => navigate(-1)} className="px-6 py-2 bg-white/10 hover:bg-white/20 rounded-xl backdrop-blur-md transition-colors text-white border border-white/10">Go Back</button>
       </div>
     );
   }
 
   const chartData = item.ratingsBreakdown ? [
-    { name: 'Story', score: item.ratingsBreakdown.story, fill: '#3b82f6' }, // Blue
-    { name: 'Acting', score: item.ratingsBreakdown.acting, fill: '#8b5cf6' }, // Purple
-    { name: 'Visuals', score: item.ratingsBreakdown.visuals, fill: '#f43f5e' }, // Pink
-    { name: 'Sound', score: item.ratingsBreakdown.sound, fill: '#10b981' }, // Emerald
+    { name: 'Story', score: item.ratingsBreakdown.story, fill: '#60a5fa' }, // Light Blue
+    { name: 'Acting', score: item.ratingsBreakdown.acting, fill: '#a78bfa' }, // Light Purple
+    { name: 'Visuals', score: item.ratingsBreakdown.visuals, fill: '#fb7185' }, // Light Rose
+    { name: 'Sound', score: item.ratingsBreakdown.sound, fill: '#34d399' }, // Light Emerald
   ] : [
-    { name: 'Story', score: item.imdbRating, fill: '#3b82f6' },
-    { name: 'Acting', score: item.imdbRating, fill: '#8b5cf6' },
-    { name: 'Visuals', score: item.imdbRating, fill: '#f43f5e' },
-    { name: 'Sound', score: item.imdbRating, fill: '#10b981' },
+    { name: 'Story', score: item.imdbRating || 0, fill: '#60a5fa' },
+    { name: 'Acting', score: item.imdbRating || 0, fill: '#a78bfa' },
+    { name: 'Visuals', score: item.imdbRating || 0, fill: '#fb7185' },
+    { name: 'Sound', score: item.imdbRating || 0, fill: '#34d399' },
   ];
 
   const isSeries = (item.type === MediaType.SHOW || item.type === MediaType.ANIME) && item.subType !== 'Movie';
   const inWatchlist = isInWatchlist(item.id);
   const trailerEmbedUrl = getYoutubeEmbedUrl(trailerUrl);
+  
+  // Logic to determine display string for Audio
+  const isDubbed = item.audioType && (item.audioType.includes('Dub') || item.audioType.includes('Multi'));
+  const originalLang = item.originalLanguage ? item.originalLanguage.toUpperCase() : null;
+
+  const hasSevereContent = item.contentRatingDetails?.some(d => d.severity.toLowerCase() === 'severe') ?? false;
 
   return (
     <>
@@ -265,7 +397,7 @@ export const DetailsView: React.FC = () => {
             
             <button 
             onClick={() => navigate(-1)}
-            className="absolute top-6 left-6 bg-white/5 backdrop-blur-xl border border-white/10 p-3 rounded-full hover:bg-white/20 transition-all z-20 group shadow-lg"
+            className="absolute top-6 left-6 bg-white/5 backdrop-blur-2xl border border-white/10 p-3 rounded-full hover:bg-white/10 transition-all z-20 group shadow-lg hover:shadow-[0_0_20px_rgba(255,255,255,0.1)]"
             >
             <ArrowLeft size={24} className="text-white group-hover:-translate-x-1 transition-transform" />
             </button>
@@ -277,7 +409,7 @@ export const DetailsView: React.FC = () => {
             {/* Left Column: Poster & Quick Info */}
             <div className="w-full md:w-72 flex-shrink-0 flex flex-col gap-6">
                 {/* Poster - Glass Container */}
-                <div className="w-full aspect-[2/3] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 bg-slate-800/20 backdrop-blur-xl overflow-hidden relative z-20 group">
+                <div className="w-full aspect-[2/3] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 bg-white/5 backdrop-blur-3xl overflow-hidden relative z-20 group">
                     {!posterError ? (
                         <img 
                         src={posterSrc} 
@@ -297,15 +429,15 @@ export const DetailsView: React.FC = () => {
                 <div className="grid grid-cols-2 gap-3 md:flex md:flex-col md:gap-6">
                     
                     {/* Rating Breakdown - Compact Glass Card */}
-                    <div className="col-span-1 md:w-full bg-gradient-to-br from-white/10 to-transparent backdrop-blur-2xl p-3 md:p-5 rounded-xl md:rounded-2xl border border-white/10 shadow-lg relative overflow-hidden group">
+                    <div className="col-span-1 md:w-full bg-white/[0.03] backdrop-blur-3xl p-3 md:p-5 rounded-xl md:rounded-2xl border border-white/[0.05] shadow-glass relative overflow-hidden group">
                         <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
                         <div className="flex items-center justify-between mb-4 relative z-10">
                             <h3 className="text-[10px] md:text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1 md:gap-2">
-                            <Activity size={12} className="text-primary md:w-[14px] md:h-[14px]" /> <span className="hidden xs:inline">Analysis</span>
+                            <Activity size={12} className="text-white md:w-[14px] md:h-[14px]" /> <span className="hidden xs:inline">Analysis</span>
                             </h3>
                             <div className="flex items-center gap-1 bg-black/30 px-1.5 py-0.5 md:px-2 md:py-1 rounded-lg border border-white/5">
                             <Star size={10} className="text-yellow-400" fill="currentColor" />
-                            <span className="text-[10px] md:text-xs font-bold text-white">{item.imdbRating}</span>
+                            <span className="text-[10px] md:text-xs font-bold text-white">{item.imdbRating || 'N/A'}</span>
                             </div>
                         </div>
                         
@@ -316,7 +448,7 @@ export const DetailsView: React.FC = () => {
                                     <span>{data.name}</span>
                                     <span style={{ color: data.fill }}>{data.score}/10</span>
                                 </div>
-                                <div className="h-1 md:h-1.5 w-full bg-black/40 rounded-full overflow-hidden border border-white/5">
+                                <div className="h-1 md:h-1.5 w-full bg-white/10 rounded-full overflow-hidden border border-white/5">
                                     <div 
                                         className="h-full rounded-full transition-all duration-1000 ease-out"
                                         style={{ 
@@ -332,37 +464,20 @@ export const DetailsView: React.FC = () => {
                     </div>
 
                     {/* Platforms List - Glass Panel */}
-                    <div className="col-span-1 md:w-full bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-2xl p-3 md:p-5 rounded-xl md:rounded-2xl border border-white/5 shadow-lg">
+                    <div className="col-span-1 md:w-full bg-white/[0.03] backdrop-blur-3xl p-3 md:p-5 rounded-xl md:rounded-2xl border border-white/[0.05] shadow-glass">
                         <h3 className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 md:mb-4 flex items-center gap-2">
                             <MonitorPlay size={12} className="md:w-[14px] md:h-[14px]" /> Available
                         </h3>
                         <div className="flex flex-wrap gap-2 md:gap-3">
-                            {item.platforms && item.platforms.length > 0 ? item.platforms.map(platform => {
-                            const logo = getPlatformLogo(platform);
-                            return logo ? (
-                                <a 
-                                    key={platform} 
-                                    href={`https://www.google.com/search?q=watch ${item.title} on ${platform}`} 
-                                    target="_blank" 
-                                    rel="noreferrer"
-                                    className="group relative block w-8 h-8 md:w-10 md:h-10 bg-white/10 rounded-lg md:rounded-xl overflow-hidden border border-white/5 hover:border-white/20 hover:scale-105 transition-all shadow-md"
-                                    title={platform}
-                                >
-                                    <img src={logo} alt={platform} className="w-full h-full object-cover" />
-                                    <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors"></div>
-                                </a>
-                            ) : (
-                                <span key={platform} className="px-2 py-1 md:px-3 md:py-1.5 bg-primary/10 text-primary border border-primary/20 rounded md:rounded-lg text-[10px] md:text-sm font-medium hover:bg-primary/20 transition-colors cursor-default">
-                                    {platform}
-                                </span>
-                            );
-                            }) : <span className="text-slate-500 text-[10px] md:text-sm italic">Not available</span>}
+                            {item.platforms && item.platforms.length > 0 ? item.platforms.map(platform => (
+                                <PlatformItem key={platform} platform={platform} title={item.title} />
+                            )) : <span className="text-slate-500 text-[10px] md:text-sm italic">Not available</span>}
                         </div>
                     </div>
 
                     {/* Tech Specs Panel */}
                     {item.techSpecs && item.techSpecs.length > 0 && (
-                        <div className="col-span-2 sm:col-span-1 md:w-full bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-2xl p-3 md:p-5 rounded-xl md:rounded-2xl border border-white/5 shadow-lg">
+                        <div className="col-span-2 sm:col-span-1 md:w-full bg-white/[0.03] backdrop-blur-3xl p-3 md:p-5 rounded-xl md:rounded-2xl border border-white/[0.05] shadow-glass">
                             <h3 className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 md:mb-4 flex items-center gap-2">
                                 <Settings2 size={12} className="md:w-[14px] md:h-[14px]" /> Specs
                             </h3>
@@ -391,15 +506,24 @@ export const DetailsView: React.FC = () => {
                 </div>
                 
                 <div className="flex flex-wrap items-center gap-4 text-sm md:text-base text-slate-300 mb-6 mt-3">
-                <span className="flex items-center gap-1.5"><Calendar size={16} className="text-primary" /> {formatDate(item.releaseDate)}</span>
-                {item.country && <span className="flex items-center gap-1.5"><Globe size={16} className="text-primary" /> {item.country}</span>}
+                <span className="flex items-center gap-1.5"><Calendar size={16} className="text-slate-400" /> {formatDate(item.releaseDate)}</span>
+                {item.country && <span className="flex items-center gap-1.5"><Globe size={16} className="text-slate-400" /> {item.country}</span>}
                 {item.maturityRating && <span className="flex items-center gap-1.5"><ShieldAlert size={16} className="text-accent" /> {item.maturityRating}</span>}
-                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 font-bold"><Star size={16} fill="currentColor" /> {item.imdbRating}</span>
-                {item.audioType && (
-                    <span className="flex items-center gap-1.5 px-2 py-0.5 bg-white/5 border border-white/10 rounded-md text-xs"><Mic size={14} className="text-green-400" /> {item.audioType}</span>
+                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-yellow-400/10 border border-yellow-400/20 text-yellow-300 font-bold"><Star size={16} fill="currentColor" /> {item.imdbRating || 'N/A'}</span>
+                
+                {/* Audio Info */}
+                {(originalLang || isDubbed) && (
+                    <span className="flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/10 rounded-md text-xs font-medium">
+                        <Languages size={14} className="text-blue-300" />
+                        <span className="text-slate-200">
+                             {originalLang || 'Unknown'} 
+                             {isDubbed && <span className="text-slate-400 ml-1">• Dub Available</span>}
+                        </span>
+                    </span>
                 )}
+                
                  {item.techSpecs && item.techSpecs.length > 0 && (
-                     <span className="flex items-center gap-1.5 px-2 py-0.5 bg-white/5 border border-white/10 rounded-md text-xs"><Award size={14} className="text-purple-400" /> {item.techSpecs[0]}</span>
+                     <span className="flex items-center gap-1.5 px-2 py-0.5 bg-white/5 border border-white/10 rounded-md text-xs"><Award size={14} className="text-purple-300" /> {item.techSpecs[0]}</span>
                  )}
                 </div>
 
@@ -407,7 +531,7 @@ export const DetailsView: React.FC = () => {
                 <div className="flex flex-wrap gap-4 mb-8 items-center justify-between">
                     <div className="flex flex-wrap gap-2">
                         {(item.genres || []).map(g => (
-                            <span key={g} className="px-4 py-1.5 bg-gradient-to-r from-white/10 to-white/5 border border-white/5 rounded-full text-sm text-slate-200 hover:bg-white/10 hover:border-white/10 transition-all cursor-default">
+                            <span key={g} className="px-4 py-1.5 bg-white/5 border border-white/5 rounded-full text-sm text-slate-200 hover:bg-white/10 hover:border-white/10 transition-all cursor-default">
                             {g}
                             </span>
                         ))}
@@ -417,10 +541,10 @@ export const DetailsView: React.FC = () => {
                          {/* Watch Trailer Button */}
                          <button 
                             onClick={() => setShowTrailerModal(true)}
-                            className={`flex items-center gap-2 px-6 py-2.5 rounded-full font-bold transition-all duration-300 border backdrop-blur-md
+                            className={`flex items-center gap-2 px-6 py-2.5 rounded-full font-bold transition-all duration-300 border backdrop-blur-2xl
                             ${loadingTrailer 
                                 ? 'bg-white/5 border-white/5 text-slate-400 cursor-wait' 
-                                : 'bg-white/10 border-white/10 text-white hover:bg-white/20 hover:border-white/30 hover:shadow-[0_0_20px_rgba(255,255,255,0.2)]'
+                                : 'bg-white/10 border-white/20 text-white hover:bg-white/20 hover:border-white/30 hover:shadow-[0_0_20px_rgba(255,255,255,0.2)]'
                             }`}
                             disabled={loadingTrailer}
                          >
@@ -432,10 +556,10 @@ export const DetailsView: React.FC = () => {
                         <button 
                             onClick={() => toggleWatchlist(item)}
                             className={`
-                                flex items-center gap-2 px-6 py-2.5 rounded-full font-bold transition-all duration-300 border backdrop-blur-md
+                                flex items-center gap-2 px-6 py-2.5 rounded-full font-bold transition-all duration-300 border backdrop-blur-2xl
                                 ${inWatchlist 
                                     ? 'bg-accent/20 border-accent text-accent hover:bg-accent/30' 
-                                    : 'bg-white/10 border-white/10 text-white hover:bg-white/20 hover:border-white/30'}
+                                    : 'bg-white/10 border-white/20 text-white hover:bg-white/20 hover:border-white/30'}
                             `}
                         >
                             {inWatchlist ? <Check size={18} /> : <Heart size={18} />}
@@ -446,14 +570,14 @@ export const DetailsView: React.FC = () => {
 
                 {/* Next Episode Banner - Glossy Gradient */}
                 {item.nextEpisode && (
-                    <div className="mb-8 bg-gradient-to-br from-blue-900/20 to-purple-900/20 backdrop-blur-xl border border-white/5 p-1 rounded-2xl shadow-xl">
-                    <div className="bg-slate-900/30 rounded-xl p-5 flex flex-col sm:flex-row gap-5 items-center justify-between">
+                    <div className="mb-8 bg-white/[0.03] backdrop-blur-3xl border border-white/[0.05] p-1 rounded-2xl shadow-glass">
+                    <div className="bg-black/10 rounded-xl p-5 flex flex-col sm:flex-row gap-5 items-center justify-between">
                             <div className="flex gap-4 items-center">
-                                <div className="p-3 bg-blue-600/80 rounded-full shadow-[0_0_15px_rgba(37,99,235,0.5)] animate-pulse">
+                                <div className="p-3 bg-blue-600/60 rounded-full shadow-[0_0_15px_rgba(37,99,235,0.3)] animate-pulse">
                                     <Clock className="text-white" size={24} />
                                 </div>
                                 <div>
-                                    <h3 className="text-blue-200 font-bold text-lg">Next Episode Arriving</h3>
+                                    <h3 className="text-blue-100 font-bold text-lg">Next Episode Arriving</h3>
                                     <p className="text-white font-medium">
                                         {formatDate(item.nextEpisode.airDate)} 
                                         {item.nextEpisode.episodeNumber && ` • Ep ${item.nextEpisode.episodeNumber}`}
@@ -461,7 +585,7 @@ export const DetailsView: React.FC = () => {
                                 </div>
                             </div>
                             {item.nextEpisode.title && (
-                                <div className="bg-black/40 px-5 py-2.5 rounded-xl text-sm text-blue-100 italic border border-white/10 shadow-inner">
+                                <div className="bg-white/5 px-5 py-2.5 rounded-xl text-sm text-blue-100 italic border border-white/10 shadow-inner">
                                     "{item.nextEpisode.title}"
                                 </div>
                             )}
@@ -469,21 +593,44 @@ export const DetailsView: React.FC = () => {
                     </div>
                 )}
 
-                {/* Content Advisory - Glass Alert */}
-                {item.contentAdvisory && (
-                    <div className="mb-8 bg-red-900/10 backdrop-blur-xl border border-red-500/10 p-4 rounded-2xl flex gap-4 items-start shadow-lg">
-                        <div className="p-2 bg-red-500/10 rounded-lg">
-                            <Info className="text-red-400" size={20} />
-                        </div>
-                        <div>
-                            <h3 className="text-red-300 font-semibold text-sm mb-1">Content Certification</h3>
-                            <p className="text-slate-300 text-sm leading-relaxed opacity-90">{item.contentAdvisory}</p>
+                {/* Content Rating Section (Collapsible) */}
+                {(item.contentRatingDetails && item.contentRatingDetails.length > 0) || item.contentAdvisory ? (
+                    <div className="mb-8 bg-white/[0.03] backdrop-blur-xl border border-white/[0.05] rounded-2xl overflow-hidden shadow-glass">
+                        <button 
+                            onClick={() => setIsRatingExpanded(!isRatingExpanded)}
+                            className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors group focus:outline-none"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className={`p-2 rounded-lg transition-colors ${
+                                    hasSevereContent ? 'bg-red-500/20 text-red-400 group-hover:bg-red-500/30' : 'bg-slate-500/20 text-slate-400 group-hover:bg-slate-500/30'
+                                }`}>
+                                    <ShieldAlert size={20} />
+                                </div>
+                                <div className="text-left">
+                                    <h3 className="text-slate-200 font-bold text-base">Content Rating</h3>
+                                    <p className="text-slate-400 text-xs flex items-center gap-2">
+                                        {item.maturityRating ? `Rated ${item.maturityRating}` : 'Content Advisory'}
+                                        {hasSevereContent && <span className="text-red-400 font-semibold">• Severe Content</span>}
+                                    </p>
+                                </div>
+                            </div>
+                            <ChevronDown size={20} className={`text-slate-400 transition-transform duration-300 ${isRatingExpanded ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        <div className={`transition-all duration-300 ease-in-out ${isRatingExpanded ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                            <div className="p-4 pt-0 border-t border-white/5 space-y-3">
+                               {item.contentRatingDetails ? item.contentRatingDetails.map((detail, idx) => (
+                                   <ContentRatingItem key={idx} detail={detail} />
+                               )) : (
+                                   <p className="text-sm text-slate-400 p-2 italic">{item.contentAdvisory || "No detailed content rating available."}</p>
+                               )}
+                            </div>
                         </div>
                     </div>
-                )}
+                ) : null}
 
                 <div className="space-y-8">
-                    <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-3xl p-6 rounded-3xl border border-white/5 shadow-xl">
+                    <div className="bg-white/[0.03] backdrop-blur-3xl p-6 rounded-3xl border border-white/[0.05] shadow-glass">
                         <h2 className="text-xl font-semibold mb-4 text-white flex items-center gap-2">
                             Storyline
                         </h2>
@@ -494,14 +641,14 @@ export const DetailsView: React.FC = () => {
 
                     {/* Top Cast Section - Compact Strip */}
                     {item.cast && item.cast.length > 0 && (
-                        <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-3xl p-4 md:p-6 rounded-3xl border border-white/5 shadow-xl">
+                        <div className="bg-white/[0.03] backdrop-blur-3xl p-4 md:p-6 rounded-3xl border border-white/[0.05] shadow-glass">
                             <h2 className="text-xl font-semibold mb-4 text-white flex items-center gap-2">
-                                <Users size={20} className="text-primary" /> Top Cast
+                                <Users size={20} className="text-slate-200" /> Top Cast
                             </h2>
                             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-8 gap-3">
                                 {item.cast.map((actor, idx) => (
                                     <div key={idx} className="flex flex-col items-center text-center p-2 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 transition-colors group">
-                                        <div className="w-14 h-14 rounded-full overflow-hidden shadow-md mb-2 bg-slate-700 ring-2 ring-white/10 group-hover:ring-primary/50 transition-all">
+                                        <div className="w-14 h-14 rounded-full overflow-hidden shadow-md mb-2 bg-slate-700 ring-2 ring-white/10 group-hover:ring-white/30 transition-all">
                                              <img 
                                                 src={getBingUrl(actor, 'cast')} 
                                                 alt={actor}
@@ -531,7 +678,7 @@ export const DetailsView: React.FC = () => {
                             </h2>
                             <div className="flex flex-col gap-4">
                                 {item.seasons.map((season) => (
-                                    <div key={season.seasonNumber} className="bg-gradient-to-br from-white/10 to-transparent backdrop-blur-2xl border border-white/5 rounded-2xl overflow-hidden transition-all duration-300 hover:bg-white/5 hover:border-white/10 shadow-lg">
+                                    <div key={season.seasonNumber} className="bg-white/[0.03] backdrop-blur-2xl border border-white/[0.05] rounded-2xl overflow-hidden transition-all duration-300 hover:bg-white/10 hover:border-white/10 shadow-glass">
                                         <button 
                                         onClick={() => toggleSeason(season.seasonNumber)}
                                         className="w-full p-5 flex items-center justify-between text-left focus:outline-none"
@@ -555,26 +702,43 @@ export const DetailsView: React.FC = () => {
                                         {/* Expanded Episodes List */}
                                         {expandedSeason === season.seasonNumber && (
                                             <div className="border-t border-white/5 bg-black/10 p-2 md:p-4">
-                                                {loadingEpisodes && !episodesCache[season.seasonNumber] ? (
+                                                {loadingSeason === season.seasonNumber ? (
                                                     <div className="flex justify-center py-8">
-                                                        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+                                                        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white/50"></div>
                                                     </div>
                                                 ) : episodesCache[season.seasonNumber] && episodesCache[season.seasonNumber].length > 0 ? (
-                                                    <div className="space-y-2">
+                                                    <div className="space-y-4">
                                                         {episodesCache[season.seasonNumber].map((ep) => (
-                                                            <div key={ep.episodeNumber} className="flex gap-4 p-4 rounded-xl hover:bg-white/5 transition-colors group border border-transparent hover:border-white/5">
-                                                                <div className="text-slate-600 font-mono text-xl font-bold w-8 shrink-0 flex items-start justify-center pt-1 group-hover:text-primary/50 transition-colors">
-                                                                    {ep.episodeNumber}
+                                                            <div key={ep.episodeNumber} className="flex flex-col md:flex-row gap-4 p-4 rounded-xl hover:bg-white/5 transition-colors group border border-transparent hover:border-white/5 items-start">
+                                                                {/* Episode Image */}
+                                                                <div className="w-full md:w-40 aspect-video rounded-lg overflow-hidden bg-black/20 flex-shrink-0 border border-white/5 relative">
+                                                                     <img 
+                                                                        src={ep.stillUrl ? getProxiedUrl(ep.stillUrl) : getBingUrl(`${item.title} "${ep.title}"`, 'episode')}
+                                                                        alt={ep.title}
+                                                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                                                        loading="lazy"
+                                                                        onError={(e) => {
+                                                                            // Fallback to title card style if image fails
+                                                                            e.currentTarget.style.display = 'none';
+                                                                            e.currentTarget.parentElement!.classList.add('flex', 'items-center', 'justify-center');
+                                                                            e.currentTarget.parentElement!.innerHTML = `<span class="text-xs text-slate-500 font-mono">Ep ${ep.episodeNumber}</span>`;
+                                                                        }}
+                                                                     />
+                                                                     <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors"></div>
                                                                 </div>
-                                                                <div className="flex-1">
-                                                                    <div className="flex flex-wrap justify-between items-start mb-1 gap-2">
-                                                                        <h5 className="font-bold text-slate-200 group-hover:text-white transition-colors">{ep.title}</h5>
+                                                                
+                                                                <div className="flex-1 w-full">
+                                                                     <div className="flex flex-wrap justify-between items-start mb-1 gap-2">
+                                                                        <h5 className="font-bold text-slate-200 group-hover:text-white transition-colors text-base">
+                                                                            <span className="text-slate-500 font-mono mr-2">#{ep.episodeNumber}</span>
+                                                                            {ep.title}
+                                                                        </h5>
                                                                         <span className="text-xs bg-black/40 border border-white/10 px-2 py-1 rounded text-slate-300 flex items-center gap-1 whitespace-nowrap">
                                                                             <Star size={10} className="text-yellow-500" fill="currentColor" /> {ep.rating}
                                                                         </span>
                                                                     </div>
                                                                     <p className="text-xs text-slate-500 mb-2">{formatDate(ep.airDate)}</p>
-                                                                    <p className="text-sm text-slate-400 leading-relaxed">
+                                                                    <p className="text-sm text-slate-400 leading-relaxed line-clamp-3">
                                                                         {ep.overview}
                                                                     </p>
                                                                 </div>
@@ -594,7 +758,7 @@ export const DetailsView: React.FC = () => {
                 </div>
                 
                 {/* Recommendations Section */}
-                <div className="mt-16 pt-8 border-t border-white/10">
+                <div className="mt-16 pt-8 border-t border-white/5">
                     <h2 className="text-2xl font-bold mb-8 text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">You Might Also Like</h2>
                     {recommendations.length > 0 ? (
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -617,7 +781,7 @@ export const DetailsView: React.FC = () => {
 
         {/* Trailer Modal */}
         {showTrailerModal && (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl animate-in fade-in duration-200">
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-3xl animate-in fade-in duration-200">
                 <div 
                     className="absolute inset-0" 
                     onClick={(e) => { e.stopPropagation(); setShowTrailerModal(false); }}

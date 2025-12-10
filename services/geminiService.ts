@@ -136,52 +136,6 @@ const generateWithRetry = async (params: any, retries = 5, initialDelay = 2000) 
   throw new Error("Failed to connect to AI service after multiple attempts.");
 };
 
-// LIGHTWEIGHT Schema for list views
-// Added techSpecs back to ensure quality info is available in list
-const mediaListSchema: Schema = {
-  type: Type.ARRAY,
-  items: {
-    type: Type.OBJECT,
-    properties: {
-      id: { type: Type.STRING },
-      title: { type: Type.STRING },
-      posterUrl: { type: Type.STRING, description: "Optional." },
-      year: { type: Type.INTEGER },
-      releaseDate: { type: Type.STRING, description: "YYYY-MM-DD" },
-      imdbRating: { type: Type.NUMBER, description: "Exact IMDb rating." },
-      maturityRating: { type: Type.STRING, description: "Certificate e.g. PG-13, TV-MA" },
-      genres: { type: Type.ARRAY, items: { type: Type.STRING } },
-      platforms: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Top 2 platforms" },
-      techSpecs: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Quality e.g. '4K', 'HDR'" },
-      type: { type: Type.STRING }, 
-      subType: { type: Type.STRING }, 
-      audioType: { type: Type.STRING, description: "Language e.g. 'Sub', 'Dub', 'English'" },
-    },
-    required: ['id', 'title', 'year', 'type', 'imdbRating', 'releaseDate', 'genres'],
-  },
-};
-
-// Minimal schema for recommendations to be super fast
-const recommendationSchema: Schema = {
-  type: Type.ARRAY,
-  items: {
-    type: Type.OBJECT,
-    properties: {
-      id: { type: Type.STRING },
-      title: { type: Type.STRING },
-      year: { type: Type.INTEGER },
-      releaseDate: { type: Type.STRING },
-      imdbRating: { type: Type.NUMBER },
-      maturityRating: { type: Type.STRING },
-      genres: { type: Type.ARRAY, items: { type: Type.STRING } },
-      posterUrl: { type: Type.STRING },
-      type: { type: Type.STRING },
-      techSpecs: { type: Type.ARRAY, items: { type: Type.STRING } }, // Basic specs
-    },
-    required: ['id', 'title', 'year', 'type', 'imdbRating'],
-  }
-};
-
 export const fetchMediaItems = async (
   category: MediaType | 'All',
   filters: FilterState,
@@ -208,6 +162,7 @@ export const fetchMediaItems = async (
   const countryString = filters.country.length > 0 ? filters.country.join(", ") : "All";
   const audioString = filters.audioType.length > 0 ? filters.audioType.join(", ") : "All";
   const themeString = filters.themes.length > 0 ? filters.themes.join(", ") : "All";
+  const contentString = filters.contentDescriptors.length > 0 ? filters.contentDescriptors.join(", ") : "All";
   
   let subTypeInstruction = "";
   if (category === MediaType.ANIME && filters.animeFormat.length > 0) {
@@ -215,12 +170,14 @@ export const fetchMediaItems = async (
   }
 
   let sortInstruction = `Sort: "${filters.sortBy}"`;
-  let theaterInstruction = "";
-  
-  // Check if we should use Google Search (Live Data)
-  const useSearch = filters.sortBy === 'in_theaters';
+  if (filters.sortBy === 'trending_week') {
+    sortInstruction = `Sort: Trending specifically during this current week (last 7 days). High popularity velocity.`;
+  }
 
-  if (useSearch) {
+  let theaterInstruction = "";
+  const isTheaters = filters.sortBy === 'in_theaters';
+
+  if (isTheaters) {
       category = MediaType.MOVIE;
       sortInstruction = `Sort: Release Date DESC.`;
       
@@ -239,10 +196,6 @@ export const fetchMediaItems = async (
       - "Showtimes Masti 4"
       - "Showtimes Predator Badlands"
       - "Advance booking movies"
-
-      ANCHORS:
-      [New] "Masti 4", "Tharama", "The Girl Friend", "120 Bahadur", "Kalki 2898 AD", "Sisu", "Kantara: Chapter-1", "Baar Baar Dekho 2", "Gawahi Do", "Predator: Badlands", "Haq", "The Taj Story", "Wicked Part Two", "Demon Slayer: Hashira Training", "A Beautiful Breakup", "F1", "Shin Chan: The Movie"
-      [Re-release] "Star Wars: Ep I", "Veer-Zaara", "Amazing Spider-Man", "Om Shanti Om", "Devdas"
       `;
   }
 
@@ -259,8 +212,6 @@ export const fetchMediaItems = async (
   let ratingInstruction = "";
   if (filters.minRating !== 'All') {
       ratingInstruction = `- IMDb >= ${filters.minRating}.0.`;
-  } else if (!useSearch) {
-      ratingInstruction = `- IMDb 5.0 - 10.0.`;
   }
 
   let certificationInstruction = "";
@@ -271,22 +222,29 @@ export const fetchMediaItems = async (
   let themeInstruction = "";
   if (filters.themes.length > 0) {
       themeInstruction = `- Themes/Tags: "${themeString}". STRICTLY MATCH.`;
-      // Specific handling for Gore/Horror to ensure content advisory
       if (filters.themes.includes("Gore")) {
           themeInstruction += " Include explicit horror/gore titles.";
       }
   }
 
-  let jsonFormatInstruction = "";
-  if (useSearch) {
-      jsonFormatInstruction = `
-      OUTPUT: Valid JSON Array. Keys: "id", "title", "year", "releaseDate", "imdbRating", "genres", "platforms", "techSpecs", "type", "maturityRating", "posterUrl".
-      `;
+  let contentInstruction = "";
+  if (filters.contentDescriptors.length > 0) {
+    contentInstruction = `- Content Features: "${contentString}". The list MUST strictly contain items that are known for having these specific elements (e.g. Nudity, Foul Language, etc). Prioritize items where these features are prominent.`;
+  }
+
+  let aspectRatioInstruction = "";
+  if (filters.aspectRatio && filters.aspectRatio.length > 0) {
+      aspectRatioInstruction = `- Aspect Ratio/Format: ${filters.aspectRatio.join(" OR ")}. `;
+      if (filters.aspectRatio.includes("IMAX")) {
+          aspectRatioInstruction += " Prioritize titles filmed with IMAX cameras or having specific IMAX Extended Aspect Ratio scenes. ";
+      }
   }
 
   let prompt = `List ${quantity} ${category === 'All' ? 'Media' : category} titles. Date: ${today}
   
-  SPEED MODE: Essential metadata only. Top 2 platforms. Include TechSpecs (4K/HDR) & AudioType.
+  TASK:
+  1. Identify the items based on filters.
+  2. USE GOOGLE SEARCH to verify the *EXACT* IMDb rating and Release Date for each item. Do not guess.
   
   Filters:
   - Genre: ${genreString}
@@ -294,6 +252,8 @@ export const fetchMediaItems = async (
   - Country: ${countryString}
   - Audio: ${audioString}
   ${themeInstruction}
+  ${contentInstruction}
+  ${aspectRatioInstruction}
   ${certificationInstruction}
   ${ratingInstruction}
   ${subTypeInstruction}
@@ -303,29 +263,25 @@ export const fetchMediaItems = async (
   ${theaterInstruction}
   ${paginationInstruction}
 
-  ${jsonFormatInstruction}
+  OUTPUT FORMAT:
+  - Return ONLY a raw JSON Array. No Markdown blocks. No intro/outro text.
+  - Keys: "id", "title", "year", "releaseDate", "imdbRating", "genres", "platforms", "techSpecs", "type", "maturityRating", "posterUrl", "originalLanguage", "audioType".
 
-  DATA:
-  - 'imdbRating': Number (e.g. 7.2).
+  DATA REQUIREMENTS:
+  - 'imdbRating': Exact number from Google Search (e.g. 7.2). If strictly not found, use 0.
   - 'releaseDate': YYYY-MM-DD.
   - 'type': 'Movie', 'TV Show', 'Anime'.
   - 'platforms': Top 2 streaming only.
-  - 'techSpecs': ["4K", "Dolby"].
-  - 'audioType': 'Sub', 'Dub', 'Multi'.
+  - 'techSpecs': ["4K", "Dolby", "IMAX"].
+  - 'originalLanguage': 2-letter ISO code (e.g. 'en', 'ja', 'ko').
+  - 'audioType': 'Sub', 'Dub', 'Sub & Dub', 'Native'. Use 'Sub & Dub' if widely available in both.
   - 'maturityRating': 'PG-13', 'TV-MA', '18+'.
   `;
 
-  // Dynamic Config Construction
   const config: any = {
-      systemInstruction: "You are a fast media database. Return JSON arrays.",
+      // ALWAYS use Google Search to ensure rating accuracy as requested
+      tools: [{ googleSearch: {} }],
   };
-
-  if (useSearch) {
-      config.tools = [{ googleSearch: {} }];
-  } else {
-      config.responseMimeType = "application/json";
-      config.responseSchema = mediaListSchema;
-  }
 
   try {
     const response = await generateWithRetry({
@@ -342,13 +298,20 @@ export const fetchMediaItems = async (
         text = text.replace(/^```(json)?\n?/, '').replace(/```$/, '');
     }
     
+    // Fuzzy JSON extraction
     const jsonStartIndex = text.indexOf('[');
     const jsonEndIndex = text.lastIndexOf(']');
     if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
         text = text.substring(jsonStartIndex, jsonEndIndex + 1);
     }
 
-    let data = JSON.parse(text);
+    let data;
+    try {
+        data = JSON.parse(text);
+    } catch (e) {
+        console.warn("Failed to parse JSON from AI response:", text);
+        return [];
+    }
 
     if (!Array.isArray(data) && data.items && Array.isArray(data.items)) {
         data = data.items;
@@ -367,9 +330,10 @@ export const fetchMediaItems = async (
         genres: Array.isArray(item.genres) ? item.genres : [],
         platforms: Array.isArray(item.platforms) ? item.platforms : [],
         techSpecs: Array.isArray(item.techSpecs) ? item.techSpecs : [],
+        imdbRating: typeof item.imdbRating === 'number' ? item.imdbRating : 0, // Ensure number
     })) as MediaItem[];
 
-    if (useSearch) {
+    if (isTheaters) {
         const todayTime = new Date(today).getTime();
         const minTime = new Date(minReleaseDate).getTime();
 
@@ -407,73 +371,54 @@ export const fetchMediaItems = async (
   }
 };
 
-const detailSchema: Schema = {
-  type: Type.OBJECT,
-  properties: {
-    id: { type: Type.STRING },
-    title: { type: Type.STRING },
-    description: { type: Type.STRING },
-    posterUrl: { type: Type.STRING },
-    backdropUrl: { type: Type.STRING },
-    trailerUrl: { type: Type.STRING },
-    year: { type: Type.INTEGER },
-    releaseDate: { type: Type.STRING },
-    imdbRating: { type: Type.NUMBER },
-    ratingsBreakdown: {
-      type: Type.OBJECT,
-      properties: {
-        story: { type: Type.NUMBER },
-        acting: { type: Type.NUMBER },
-        visuals: { type: Type.NUMBER },
-        sound: { type: Type.NUMBER }
-      },
-      required: ['story', 'acting', 'visuals', 'sound']
-    },
-    maturityRating: { type: Type.STRING },
-    contentAdvisory: { type: Type.STRING },
-    genres: { type: Type.ARRAY, items: { type: Type.STRING } },
-    cast: { type: Type.ARRAY, items: { type: Type.STRING } }, // Added Cast
-    platforms: { type: Type.ARRAY, items: { type: Type.STRING } },
-    techSpecs: { type: Type.ARRAY, items: { type: Type.STRING } },
-    country: { type: Type.STRING },
-    type: { type: Type.STRING },
-    subType: { type: Type.STRING },
-    audioType: { type: Type.STRING },
-    seasons: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          seasonNumber: { type: Type.INTEGER },
-          episodeCount: { type: Type.INTEGER },
-          releaseDate: { type: Type.STRING },
-          title: { type: Type.STRING }
-        }
-      }
-    },
-    nextEpisode: {
-      type: Type.OBJECT,
-      nullable: true,
-      properties: {
-        airDate: { type: Type.STRING },
-        episodeNumber: { type: Type.INTEGER },
-        seasonNumber: { type: Type.INTEGER },
-        title: { type: Type.STRING }
-      }
-    }
-  },
-  required: ['title', 'type', 'ratingsBreakdown', 'description', 'genres'],
-};
-
 export const fetchMediaDetails = async (title: string, type: string): Promise<MediaItem | null> => {
     const cacheKey = getCacheKey('details', { title, type });
     if (requestCache.has(cacheKey)) {
       return requestCache.get(cacheKey);
     }
 
-    const prompt = `Details for ${type}: "${title}". Date: ${new Date().toISOString().split('T')[0]}.
-    Needs: releaseDate, seasons (metadata only), ratingsBreakdown, platforms, techSpecs, maturityRating, audioType, cast (Top 6 actors).
-    trailerUrl: YouTube URL (IGN, Rotten Tomatoes, Fandango only).
+    const prompt = `Provide detailed metadata for ${type}: "${title}". Date: ${new Date().toISOString().split('T')[0]}.
+    
+    TASK: 
+    1. USE GOOGLE SEARCH to find *EXACT* IMDb rating, release date, and cast.
+    2. IF it is a TV Show or Anime, you MUST find the list of ALL seasons and their episode counts.
+    3. DO NOT return individual episode details (titles, air dates) in the 'seasons' array. Only return summaries.
+    4. Find the "Parents Guide" or content advisory details. Fill 'contentRatingDetails' for ALL 5 categories: "Sex & Nudity", "Violence & Gore", "Profanity", "Alcohol, Drugs & Smoking", "Frightening & Intense Scenes". Determine severity (None, Mild, Moderate, Severe) and provide a specific description.
+
+    OUTPUT FORMAT:
+    Return ONLY a raw JSON Object (not an array).
+    
+    Keys required:
+    {
+      "id": "string",
+      "title": "string",
+      "description": "string",
+      "year": number,
+      "releaseDate": "YYYY-MM-DD",
+      "imdbRating": number, 
+      "ratingsBreakdown": { "story": number, "acting": number, "visuals": number, "sound": number },
+      "maturityRating": "string",
+      "contentAdvisory": "string",
+      "contentRatingDetails": [
+         { "category": "Sex & Nudity", "severity": "string", "description": "string" },
+         { "category": "Violence & Gore", "severity": "string", "description": "string" },
+         { "category": "Profanity", "severity": "string", "description": "string" },
+         { "category": "Alcohol, Drugs & Smoking", "severity": "string", "description": "string" },
+         { "category": "Frightening & Intense Scenes", "severity": "string", "description": "string" }
+      ],
+      "genres": ["string"],
+      "cast": ["Actor 1", "Actor 2", "Actor 3", "Actor 4", "Actor 5", "Actor 6"],
+      "platforms": ["Netflix", "Prime", etc],
+      "techSpecs": ["4K", "Dolby"],
+      "country": "string",
+      "type": "string",
+      "subType": "string",
+      "audioType": "string",
+      "originalLanguage": "string (2-letter code)",
+      "trailerUrl": "YouTube URL from official channels",
+      "seasons": [ { "seasonNumber": 1, "episodeCount": 10, "releaseDate": "YYYY-MM-DD", "title": "Arc Name or Season Title" } ],
+      "nextEpisode": { "airDate": "YYYY-MM-DD", "episodeNumber": 5, "seasonNumber": 2, "title": "Ep Title" } (or null)
+    }
     `;
     
     try {
@@ -481,16 +426,23 @@ export const fetchMediaDetails = async (title: string, type: string): Promise<Me
         model: 'gemini-2.5-flash',
         contents: prompt,
         config: {
-            responseMimeType: "application/json",
-            responseSchema: detailSchema, 
+            // Using Google Search to verify ratings
+            tools: [{ googleSearch: {} }],
         }
       });
 
       let text = response.text;
       if(!text) return null;
       
+      text = text.trim();
       if (text.startsWith('```')) {
         text = text.replace(/^```(json)?\n?/, '').replace(/```$/, '');
+      }
+      
+      const jsonStartIndex = text.indexOf('{');
+      const jsonEndIndex = text.lastIndexOf('}');
+      if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
+          text = text.substring(jsonStartIndex, jsonEndIndex + 1);
       }
 
       const data = JSON.parse(text);
@@ -504,6 +456,8 @@ export const fetchMediaDetails = async (title: string, type: string): Promise<Me
             techSpecs: Array.isArray(result.techSpecs) ? result.techSpecs : [],
             cast: Array.isArray(result.cast) ? result.cast : [],
             seasons: Array.isArray(result.seasons) ? result.seasons : [],
+            contentRatingDetails: Array.isArray(result.contentRatingDetails) ? result.contentRatingDetails : [],
+            imdbRating: typeof result.imdbRating === 'number' ? result.imdbRating : 0, // Ensure number
         };
       }
 
@@ -554,53 +508,106 @@ export const fetchTrailerUrl = async (title: string, type: string): Promise<stri
   }
 }
 
-const episodeListSchema: Schema = {
-  type: Type.ARRAY,
-  items: {
-    type: Type.OBJECT,
-    properties: {
-      episodeNumber: { type: Type.INTEGER },
-      title: { type: Type.STRING },
-      overview: { type: Type.STRING },
-      airDate: { type: Type.STRING },
-      rating: { type: Type.NUMBER },
-    },
-    required: ['episodeNumber', 'title', 'overview', 'airDate'],
-  },
-};
-
 export const fetchSeasonEpisodes = async (title: string, seasonNumber: number): Promise<Episode[]> => {
   const cacheKey = getCacheKey('episodes', { title, seasonNumber });
   if (requestCache.has(cacheKey)) {
     return requestCache.get(cacheKey);
   }
 
-  const prompt = `Episodes for Season ${seasonNumber} of "${title}".`;
+  const prompt = `Find the complete episode list for Season ${seasonNumber} of the TV show/Anime "${title}".
+  
+  TASK: 
+  1. USE GOOGLE SEARCH to find the exact episode titles, air dates, and overviews.
+  2. Search for a specific "still" or "thumbnail" image URL for each episode from a reliable source (like IMDb, TVDB, fandom wiki).
+  
+  OUTPUT FORMAT:
+  - Return ONLY a raw JSON Array.
+  - Keys: "episodeNumber", "title", "overview", "airDate", "rating" (number), "stillUrl" (string, distinct for each episode if possible).
+  - If "stillUrl" is not directly available, omit it.
+  - Ensure all episodes for the season are listed.
+  `;
 
   try {
     const response = await generateWithRetry({
       model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
-        responseMimeType: "application/json",
-        responseSchema: episodeListSchema,
+        tools: [{ googleSearch: {} }], // Enable search for older content availability
+        // NO responseSchema/MimeType when using tools
       }
     });
     
     let text = response.text;
     if (!text) return [];
+    text = text.trim();
     if (text.startsWith('```')) {
         text = text.replace(/^```(json)?\n?/, '').replace(/```$/, '');
     }
 
-    const data = JSON.parse(text) as Episode[];
-    requestCache.set(cacheKey, data);
-    return data;
+    const jsonStartIndex = text.indexOf('[');
+    const jsonEndIndex = text.lastIndexOf(']');
+    if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
+        text = text.substring(jsonStartIndex, jsonEndIndex + 1);
+    }
+
+    let data;
+    try {
+        data = JSON.parse(text);
+    } catch(e) {
+        console.warn("Failed to parse episode JSON:", text);
+        return [];
+    }
+
+    // Validation
+    if (!Array.isArray(data)) return [];
+
+    const sanitized = data.map((ep: any) => ({
+        episodeNumber: ep.episodeNumber,
+        title: ep.title,
+        overview: ep.overview,
+        airDate: ep.airDate,
+        rating: typeof ep.rating === 'number' ? ep.rating : 0,
+        stillUrl: ep.stillUrl
+    }));
+
+    requestCache.set(cacheKey, sanitized);
+    return sanitized;
   } catch (error) {
     console.error("Error fetching episodes:", error);
     return [];
   }
 }
+
+const recommendationSchema: Schema = {
+  type: Type.ARRAY,
+  items: {
+    type: Type.OBJECT,
+    properties: {
+      id: { type: Type.STRING },
+      title: { type: Type.STRING },
+      year: { type: Type.INTEGER },
+      releaseDate: { type: Type.STRING },
+      imdbRating: { type: Type.NUMBER },
+      type: { type: Type.STRING },
+      posterUrl: { type: Type.STRING, nullable: true },
+      genres: {
+        type: Type.ARRAY,
+        items: { type: Type.STRING },
+      },
+      platforms: {
+        type: Type.ARRAY,
+        items: { type: Type.STRING },
+      },
+      techSpecs: {
+        type: Type.ARRAY,
+        items: { type: Type.STRING },
+      },
+      audioType: { type: Type.STRING },
+      maturityRating: { type: Type.STRING },
+    },
+    required: ['title', 'year', 'type'],
+  },
+};
 
 export const fetchRecommendations = async (title: string, type: string): Promise<MediaItem[]> => {
   const cacheKey = getCacheKey('recs', { title, type });
@@ -615,8 +622,8 @@ export const fetchRecommendations = async (title: string, type: string): Promise
       model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
+        // No strict schema, using simple generation for speed, but search isn't strictly needed for recommendations
         responseMimeType: "application/json",
-        // Use lightweight recommendation schema but need tech specs for badges
         responseSchema: recommendationSchema, 
       },
     });
@@ -643,6 +650,7 @@ export const fetchRecommendations = async (title: string, type: string): Promise
         genres: Array.isArray(item.genres) ? item.genres : [],
         platforms: Array.isArray(item.platforms) ? item.platforms : [],
         techSpecs: Array.isArray(item.techSpecs) ? item.techSpecs : [],
+        imdbRating: typeof item.imdbRating === 'number' ? item.imdbRating : 0, // Ensure number
     })) as MediaItem[];
 
     requestCache.set(cacheKey, sanitizedData);

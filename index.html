@@ -19,6 +19,11 @@
             fontFamily: {
               sans: ['Inter', 'sans-serif'],
             },
+            boxShadow: {
+              'glass': '0 4px 30px rgba(0, 0, 0, 0.1)',
+              'glass-inset': 'inset 0 0 20px rgba(255, 255, 255, 0.05)',
+              'neon': '0 0 10px rgba(255, 255, 255, 0.5), 0 0 20px rgba(255, 255, 255, 0.3)',
+            }
           },
         },
       };
@@ -41,13 +46,13 @@
       }
       body {
         background-color: #020617;
-        /* Enhanced gradients for better visibility through glass UI */
+        /* Enhanced gradients for better visibility through glass UI - Lighter and more vibrant */
         background-image: 
-            radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
-            radial-gradient(at 50% 0%, hsla(225,39%,25%,1) 0, transparent 50%), 
-            radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%),
-            radial-gradient(at 0% 100%, hsla(225,39%,25%,1) 0, transparent 50%),
-            radial-gradient(at 100% 100%, hsla(253,16%,7%,1) 0, transparent 50%);
+            radial-gradient(at 0% 0%, hsla(253,40%,20%,1) 0, transparent 50%), 
+            radial-gradient(at 50% 0%, hsla(225,50%,35%,1) 0, transparent 50%), 
+            radial-gradient(at 100% 0%, hsla(339,60%,40%,1) 0, transparent 50%),
+            radial-gradient(at 0% 100%, hsla(200,50%,35%,1) 0, transparent 50%),
+            radial-gradient(at 100% 100%, hsla(280,40%,20%,1) 0, transparent 50%);
         background-attachment: fixed;
         background-size: cover;
         color: #f8fafc;

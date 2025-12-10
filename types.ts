@@ -19,6 +19,7 @@ export interface Episode {
   overview: string;
   airDate: string;
   rating: number;
+  stillUrl?: string; // Image URL for the episode
 }
 
 export interface Season {
@@ -43,6 +44,12 @@ export interface RatingsBreakdown {
   sound: number;
 }
 
+export interface ContentRatingDetail {
+  category: string; // e.g., "Sex & Nudity", "Violence & Gore"
+  severity: 'None' | 'Mild' | 'Moderate' | 'Severe';
+  description: string;
+}
+
 export interface MediaItem {
   id: string;
   title: string;
@@ -55,12 +62,14 @@ export interface MediaItem {
   imdbRating: number;
   ratingsBreakdown?: RatingsBreakdown; // Specific scores for the chart
   maturityRating: string;
-  contentAdvisory?: string; // Made optional
+  contentAdvisory?: string; // Made optional - kept for summary/fallback
+  contentRatingDetails?: ContentRatingDetail[]; // New: Detailed breakdown
   genres: string[];
   cast?: string[];      // New: Array of actor names
   platforms?: string[]; // Made optional
   techSpecs?: string[]; // New: e.g. ["4K", "Dolby Atmos", "IMAX"]
   country?: string;     // Made optional
+  originalLanguage?: string; // New: e.g. "en", "ja", "ko"
   type: MediaType;
   subType?: 'Movie' | 'TV Series' | 'OVA' | 'Special'; // Specific for Anime/Shows distinction
   seasons?: Season[]; // For Shows and Anime Series
@@ -79,7 +88,9 @@ export interface FilterState {
   audioType: string[];     // Changed to array
   animeFormat: string[];   // Changed to array
   themes: string[];        // New: Specific tags like "Gore", "Isekai", "Cyberpunk"
-  sortBy: 'trending' | 'popular' | 'newest' | 'rating' | 'in_theaters';
+  aspectRatio: string[];   // New: IMAX, Widescreen, etc.
+  contentDescriptors: string[]; // New: Nudity, Foul Language, etc.
+  sortBy: 'trending' | 'trending_week' | 'popular' | 'newest' | 'rating' | 'in_theaters';
 }
 
 export interface NavItem {
