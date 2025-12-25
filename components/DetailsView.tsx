@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Star, Calendar, Globe, MonitorPlay, ShieldAlert, Mic, Info, ImageOff, Clock, ChevronDown, PlayCircle, Heart, Check, Settings2, X, ExternalLink, Activity, Award, Users, Languages } from 'lucide-react';
+import { ArrowLeft, Star, Calendar, Globe, MonitorPlay, ShieldAlert, Mic, Info, ImageOff, Clock, ChevronDown, PlayCircle, Heart, Check, Settings2, X, Activity, Award, Users, Languages } from 'lucide-react';
 import { MediaItem, MediaType, Episode, ContentRatingDetail } from '../types';
 import { fetchMediaDetails, fetchRecommendations, fetchSeasonEpisodes, fetchTrailerUrl } from '../services/geminiService';
 import MediaCard from './MediaCard';
@@ -79,26 +79,29 @@ const PlatformItem: React.FC<{ platform: string; title: string }> = ({ platform,
             href={`https://www.google.com/search?q=watch ${title} on ${platform}`} 
             target="_blank" 
             rel="noreferrer"
-            className="group relative block w-8 h-8 md:w-10 md:h-10 bg-white/10 rounded-lg md:rounded-xl overflow-hidden border border-white/10 hover:border-white/30 hover:scale-105 transition-all shadow-md"
+            className="group relative block w-8 h-8 md:w-10 md:h-10 bg-white/10 rounded-lg md:rounded-xl overflow-visible border border-white/10 hover:border-white/30 hover:scale-105 transition-all shadow-md z-10"
             title={platform}
         >
-            {!error && domain ? (
-                 <img 
-                    src={imgSrc} 
-                    alt={platform} 
-                    className="w-full h-full object-cover" 
-                    onError={handleError}
-                    referrerPolicy="no-referrer"
-                    loading="lazy"
-                 />
-            ) : null}
-            
-            {/* Fallback Text */}
-            <div className={`w-full h-full flex items-center justify-center bg-slate-800 text-[10px] font-bold text-slate-300 ${!error && domain ? 'hidden' : ''}`}>
-                {platform.slice(0,1).toUpperCase()}
-            </div>
+            {/* Platform Icon Glow */}
+            <div className="absolute -inset-2 bg-white/20 rounded-xl blur-md opacity-30 group-hover:opacity-100 transition-opacity duration-300 z-[-1]"></div>
 
-            <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors"></div>
+            <div className="w-full h-full rounded-lg md:rounded-xl overflow-hidden relative z-10">
+                {!error && domain ? (
+                    <img 
+                        src={imgSrc} 
+                        alt={platform} 
+                        className="w-full h-full object-cover" 
+                        onError={handleError}
+                        referrerPolicy="no-referrer"
+                        loading="lazy"
+                    />
+                ) : null}
+                
+                {/* Fallback Text */}
+                <div className={`w-full h-full flex items-center justify-center bg-slate-800 text-[10px] font-bold text-slate-300 ${!error && domain ? 'hidden' : ''}`}>
+                    {platform.slice(0,1).toUpperCase()}
+                </div>
+            </div>
         </a>
     );
 };
@@ -116,10 +119,13 @@ const ContentRatingItem: React.FC<{ detail: ContentRatingDetail }> = ({ detail }
     };
 
     return (
-        <div className="bg-white/5 rounded-xl border border-white/5 overflow-hidden transition-all duration-200 hover:bg-white/[0.07]">
+        <div className="bg-white/5 rounded-xl border border-white/5 overflow-visible transition-all duration-200 relative group">
+            {/* Content Item Glow */}
+            <div className="absolute -inset-1 bg-white/5 rounded-xl blur-md opacity-20 group-hover:opacity-100 transition-opacity duration-300 z-[-1]"></div>
+
             <button 
                 onClick={() => setIsOpen(!isOpen)}
-                className="w-full flex items-center justify-between p-3.5 text-left focus:outline-none group"
+                className="w-full flex items-center justify-between p-3.5 text-left focus:outline-none relative z-10"
             >
                 <span className="font-semibold text-slate-200 text-sm group-hover:text-white transition-colors">{detail.category}</span>
                 <div className="flex items-center gap-3">
@@ -129,7 +135,7 @@ const ContentRatingItem: React.FC<{ detail: ContentRatingDetail }> = ({ detail }
                     <ChevronDown size={16} className={`text-slate-500 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
                 </div>
             </button>
-            <div className={`transition-all duration-300 ease-in-out bg-black/20 ${isOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
+            <div className={`transition-all duration-300 ease-in-out bg-black/20 rounded-b-xl ${isOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
                 <div className="px-4 pb-4 pt-2">
                     <div className="h-px w-full bg-white/5 mb-3"></div>
                     <p className="text-xs text-slate-400 leading-relaxed font-light">
@@ -160,7 +166,6 @@ export const DetailsView: React.FC = () => {
 
   const [expandedSeason, setExpandedSeason] = useState<number | null>(null);
   const [episodesCache, setEpisodesCache] = useState<Record<number, Episode[]>>({});
-  // Changed to track which specific season is loading
   const [loadingSeason, setLoadingSeason] = useState<number | null>(null);
   
   const [showTrailerModal, setShowTrailerModal] = useState(false);
@@ -202,7 +207,6 @@ export const DetailsView: React.FC = () => {
         const videoId = match ? match[1] : null;
 
         if (videoId) {
-            // Simplified Embed URL to prevent "Error 153"
             return `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&controls=1`;
         }
     } catch(e) {
@@ -236,7 +240,6 @@ export const DetailsView: React.FC = () => {
         if (detailsData) {
             setItem(detailsData);
             
-            // Set trailer if available in initial data (rare with optimized schema)
             if (detailsData.trailerUrl) {
                 setTrailerUrl(detailsData.trailerUrl);
             }
@@ -257,7 +260,6 @@ export const DetailsView: React.FC = () => {
                 setIsPosterBing(true);
             }
 
-            // Lazy load trailer in background if not present
             if (!detailsData.trailerUrl) {
                 setLoadingTrailer(true);
                 fetchTrailerUrl(detailsData.title, detailsData.type).then(url => {
@@ -304,7 +306,6 @@ export const DetailsView: React.FC = () => {
 
     setExpandedSeason(seasonNumber);
 
-    // If already cached, don't fetch again
     if (episodesCache[seasonNumber]) {
         return;
     }
@@ -317,7 +318,6 @@ export const DetailsView: React.FC = () => {
       } catch (e) {
           console.error("Failed to fetch episodes", e);
       } finally {
-          // Only clear loading if the current expanded season matches (handle rapid clicks)
           setLoadingSeason(prev => prev === seasonNumber ? null : prev);
       }
     }
@@ -353,10 +353,10 @@ export const DetailsView: React.FC = () => {
   }
 
   const chartData = item.ratingsBreakdown ? [
-    { name: 'Story', score: item.ratingsBreakdown.story, fill: '#60a5fa' }, // Light Blue
-    { name: 'Acting', score: item.ratingsBreakdown.acting, fill: '#a78bfa' }, // Light Purple
-    { name: 'Visuals', score: item.ratingsBreakdown.visuals, fill: '#fb7185' }, // Light Rose
-    { name: 'Sound', score: item.ratingsBreakdown.sound, fill: '#34d399' }, // Light Emerald
+    { name: 'Story', score: item.ratingsBreakdown.story, fill: '#60a5fa' },
+    { name: 'Acting', score: item.ratingsBreakdown.acting, fill: '#a78bfa' },
+    { name: 'Visuals', score: item.ratingsBreakdown.visuals, fill: '#fb7185' },
+    { name: 'Sound', score: item.ratingsBreakdown.sound, fill: '#34d399' },
   ] : [
     { name: 'Story', score: item.imdbRating || 0, fill: '#60a5fa' },
     { name: 'Acting', score: item.imdbRating || 0, fill: '#a78bfa' },
@@ -368,7 +368,6 @@ export const DetailsView: React.FC = () => {
   const inWatchlist = isInWatchlist(item.id);
   const trailerEmbedUrl = getYoutubeEmbedUrl(trailerUrl);
   
-  // Logic to determine display string for Audio
   const isDubbed = item.audioType && (item.audioType.includes('Dub') || item.audioType.includes('Multi'));
   const originalLang = item.originalLanguage ? item.originalLanguage.toUpperCase() : null;
 
@@ -392,14 +391,15 @@ export const DetailsView: React.FC = () => {
                 </div>
             )}
         
-            {/* Fade to Transparent instead of solid color */}
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/10 to-transparent" />
             
             <button 
             onClick={() => navigate(-1)}
-            className="absolute top-6 left-6 bg-white/5 backdrop-blur-2xl border border-white/10 p-3 rounded-full hover:bg-white/10 transition-all z-20 group shadow-lg hover:shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+            className="absolute top-6 left-6 bg-white/5 backdrop-blur-2xl border border-white/10 p-3 rounded-full hover:bg-white/10 transition-all z-20 group/back shadow-lg hover:shadow-[0_0_20px_rgba(255,255,255,0.1)]"
             >
-            <ArrowLeft size={24} className="text-white group-hover:-translate-x-1 transition-transform" />
+             {/* Back Button Glow */}
+             <div className="absolute -inset-2 bg-white/20 rounded-full blur-md opacity-30 group-hover/back:opacity-100 transition-opacity duration-300 z-[-1]"></div>
+            <ArrowLeft size={24} className="text-white group-hover/back:-translate-x-1 transition-transform" />
             </button>
         </div>
 
@@ -409,28 +409,33 @@ export const DetailsView: React.FC = () => {
             {/* Left Column: Poster & Quick Info */}
             <div className="w-full md:w-72 flex-shrink-0 flex flex-col gap-6">
                 {/* Poster - Glass Container */}
-                <div className="w-full aspect-[2/3] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 bg-white/5 backdrop-blur-3xl overflow-hidden relative z-20 group">
-                    {!posterError ? (
-                        <img 
-                        src={posterSrc} 
-                        alt={item.title} 
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                        onError={handlePosterError}
-                        />
-                    ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center p-4 text-slate-500">
-                            <ImageOff size={48} className="mb-2 opacity-50" />
-                            <span className="text-center text-sm">{item.title}</span>
-                        </div>
-                    )}
+                <div className="w-full aspect-[2/3] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 bg-white/5 backdrop-blur-3xl overflow-visible relative z-20 group">
+                     {/* Poster Ambient Glow */}
+                     <div className="absolute -inset-4 bg-white/10 rounded-[2rem] blur-2xl opacity-50 group-hover:opacity-70 transition-opacity duration-500 z-[-1]"></div>
+
+                    <div className="w-full h-full rounded-2xl overflow-hidden relative z-10">
+                        {!posterError ? (
+                            <img 
+                            src={posterSrc} 
+                            alt={item.title} 
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                            onError={handlePosterError}
+                            />
+                        ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center p-4 text-slate-500">
+                                <ImageOff size={48} className="mb-2 opacity-50" />
+                                <span className="text-center text-sm">{item.title}</span>
+                            </div>
+                        )}
+                    </div>
                 </div>
                 
                 {/* Info Cards Grid - Compact on Mobile */}
                 <div className="grid grid-cols-2 gap-3 md:flex md:flex-col md:gap-6">
                     
-                    {/* Rating Breakdown - Compact Glass Card */}
+                    {/* Rating Breakdown */}
                     <div className="col-span-1 md:w-full bg-white/[0.03] backdrop-blur-3xl p-3 md:p-5 rounded-xl md:rounded-2xl border border-white/[0.05] shadow-glass relative overflow-hidden group">
-                        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+                        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-30 group-hover:opacity-100 transition-opacity duration-700"></div>
                         <div className="flex items-center justify-between mb-4 relative z-10">
                             <h3 className="text-[10px] md:text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1 md:gap-2">
                             <Activity size={12} className="text-white md:w-[14px] md:h-[14px]" /> <span className="hidden xs:inline">Analysis</span>
@@ -463,7 +468,7 @@ export const DetailsView: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Platforms List - Glass Panel */}
+                    {/* Platforms List */}
                     <div className="col-span-1 md:w-full bg-white/[0.03] backdrop-blur-3xl p-3 md:p-5 rounded-xl md:rounded-2xl border border-white/[0.05] shadow-glass">
                         <h3 className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 md:mb-4 flex items-center gap-2">
                             <MonitorPlay size={12} className="md:w-[14px] md:h-[14px]" /> Available
@@ -475,7 +480,7 @@ export const DetailsView: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Tech Specs Panel */}
+                    {/* Tech Specs */}
                     {item.techSpecs && item.techSpecs.length > 0 && (
                         <div className="col-span-2 sm:col-span-1 md:w-full bg-white/[0.03] backdrop-blur-3xl p-3 md:p-5 rounded-xl md:rounded-2xl border border-white/[0.05] shadow-glass">
                             <h3 className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 md:mb-4 flex items-center gap-2">
@@ -511,7 +516,6 @@ export const DetailsView: React.FC = () => {
                 {item.maturityRating && <span className="flex items-center gap-1.5"><ShieldAlert size={16} className="text-accent" /> {item.maturityRating}</span>}
                 <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-yellow-400/10 border border-yellow-400/20 text-yellow-300 font-bold"><Star size={16} fill="currentColor" /> {item.imdbRating || 'N/A'}</span>
                 
-                {/* Audio Info */}
                 {(originalLang || isDubbed) && (
                     <span className="flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/10 rounded-md text-xs font-medium">
                         <Languages size={14} className="text-blue-300" />
@@ -531,47 +535,64 @@ export const DetailsView: React.FC = () => {
                 <div className="flex flex-wrap gap-4 mb-8 items-center justify-between">
                     <div className="flex flex-wrap gap-2">
                         {(item.genres || []).map(g => (
-                            <span key={g} className="px-4 py-1.5 bg-white/5 border border-white/5 rounded-full text-sm text-slate-200 hover:bg-white/10 hover:border-white/10 transition-all cursor-default">
+                            <span key={g} className="px-4 py-1.5 bg-white/5 border border-white/5 rounded-full text-sm text-slate-200 hover:bg-white/10 hover:border-white/10 transition-all cursor-default relative group/genre overflow-hidden">
+                             {/* Genre Glow */}
+                             <div className="absolute -inset-2 bg-white/10 rounded-full blur-md opacity-30 group-hover/genre:opacity-100 transition-opacity duration-300 z-[-1]"></div>
                             {g}
                             </span>
                         ))}
                     </div>
                     
                     <div className="flex items-center gap-3">
-                         {/* Watch Trailer Button */}
+                         <a 
+                            href={item.imdbId ? `https://www.imdb.com/title/${item.imdbId}/` : `https://www.imdb.com/find?q=${encodeURIComponent(item.title + " " + item.year)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 px-4 py-2 rounded-full font-bold transition-all duration-300 border backdrop-blur-2xl bg-[#f5c518]/10 border-[#f5c518]/20 text-[#f5c518] hover:bg-[#f5c518]/20 hover:border-[#f5c518]/40 hover:shadow-[0_0_15px_rgba(245,197,24,0.2)] text-sm relative group/imdb"
+                        >
+                            <div className="absolute -inset-1 bg-yellow-500/30 rounded-full blur-md opacity-40 group-hover/imdb:opacity-100 transition-opacity duration-300 z-[-1]"></div>
+                            <span className="font-black bg-[#f5c518] text-black px-1 rounded-[2px] text-[10px] leading-none flex items-center h-3.5">IMDb</span>
+                            <span>View</span>
+                        </a>
+
                          <button 
                             onClick={() => setShowTrailerModal(true)}
-                            className={`flex items-center gap-2 px-6 py-2.5 rounded-full font-bold transition-all duration-300 border backdrop-blur-2xl
+                            className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold transition-all duration-300 border backdrop-blur-2xl text-sm relative group/trailer
                             ${loadingTrailer 
                                 ? 'bg-white/5 border-white/5 text-slate-400 cursor-wait' 
-                                : 'bg-white/10 border-white/20 text-white hover:bg-white/20 hover:border-white/30 hover:shadow-[0_0_20px_rgba(255,255,255,0.2)]'
+                                : 'bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500/20 hover:border-red-500/40 hover:shadow-[0_0_15px_rgba(239,68,68,0.2)]'
                             }`}
                             disabled={loadingTrailer}
                          >
-                            {loadingTrailer ? <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white"></div> : <PlayCircle size={18} />}
-                            {loadingTrailer ? 'Finding Trailer...' : 'Watch Trailer'}
+                            <div className="absolute -inset-1 bg-red-500/30 rounded-full blur-md opacity-40 group-hover/trailer:opacity-100 transition-opacity duration-300 z-[-1]"></div>
+                            
+                            {loadingTrailer ? <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white/30 border-t-white"></div> : <PlayCircle size={16} />}
+                            {loadingTrailer ? 'Loading...' : 'Trailer'}
                          </button>
 
-                        {/* Large Watchlist Button */}
                         <button 
                             onClick={() => toggleWatchlist(item)}
                             className={`
-                                flex items-center gap-2 px-6 py-2.5 rounded-full font-bold transition-all duration-300 border backdrop-blur-2xl
+                                flex items-center gap-2 px-4 py-2 rounded-full font-bold transition-all duration-300 border backdrop-blur-2xl text-sm relative group/watchlist
                                 ${inWatchlist 
-                                    ? 'bg-accent/20 border-accent text-accent hover:bg-accent/30' 
-                                    : 'bg-white/10 border-white/20 text-white hover:bg-white/20 hover:border-white/30'}
+                                    ? 'bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 hover:border-green-500/40 hover:shadow-[0_0_15px_rgba(34,197,94,0.2)]' 
+                                    : 'bg-pink-600/10 border-pink-600/20 text-pink-500 hover:bg-pink-600/20 hover:border-pink-600/40 hover:shadow-[0_0_15px_rgba(219,39,119,0.2)]'}
                             `}
                         >
-                            {inWatchlist ? <Check size={18} /> : <Heart size={18} />}
-                            {inWatchlist ? 'In Watchlist' : 'Add to Watchlist'}
+                            <div className={`absolute -inset-1 rounded-full blur-md opacity-40 group-hover/watchlist:opacity-100 transition-opacity duration-300 z-[-1] ${inWatchlist ? 'bg-green-500/30' : 'bg-pink-500/30'}`}></div>
+
+                            {inWatchlist ? <Check size={16} /> : <Heart size={16} />}
+                            {inWatchlist ? 'Saved' : 'Watchlist'}
                         </button>
                     </div>
                 </div>
 
-                {/* Next Episode Banner - Glossy Gradient */}
+                {/* Next Episode Banner */}
                 {item.nextEpisode && (
-                    <div className="mb-8 bg-white/[0.03] backdrop-blur-3xl border border-white/[0.05] p-1 rounded-2xl shadow-glass">
-                    <div className="bg-black/10 rounded-xl p-5 flex flex-col sm:flex-row gap-5 items-center justify-between">
+                    <div className="mb-8 bg-white/[0.03] backdrop-blur-3xl border border-white/[0.05] p-1 rounded-2xl shadow-glass relative group/banner">
+                    <div className="absolute -inset-1 bg-blue-500/20 rounded-2xl blur-xl opacity-30 group-hover/banner:opacity-50 transition-opacity duration-500 z-[-1]"></div>
+                    
+                    <div className="bg-black/10 rounded-xl p-5 flex flex-col sm:flex-row gap-5 items-center justify-between relative z-10">
                             <div className="flex gap-4 items-center">
                                 <div className="p-3 bg-blue-600/60 rounded-full shadow-[0_0_15px_rgba(37,99,235,0.3)] animate-pulse">
                                     <Clock className="text-white" size={24} />
@@ -593,256 +614,190 @@ export const DetailsView: React.FC = () => {
                     </div>
                 )}
 
-                {/* Content Rating Section (Collapsible) */}
+                {/* Content Rating Section (Collapsible) - FIXED SYNTAX ERROR HERE */}
                 {(item.contentRatingDetails && item.contentRatingDetails.length > 0) || item.contentAdvisory ? (
-                    <div className="mb-8 bg-white/[0.03] backdrop-blur-xl border border-white/[0.05] rounded-2xl overflow-hidden shadow-glass">
+                    <div className="mb-8 bg-white/[0.03] backdrop-blur-xl border border-white/[0.05] rounded-2xl overflow-visible shadow-glass relative group/rating">
                         <button 
                             onClick={() => setIsRatingExpanded(!isRatingExpanded)}
-                            className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors group focus:outline-none"
+                            className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors group focus:outline-none relative z-10"
                         >
+                             {/* Rating Toggle Glow */}
+                             <div className="absolute -inset-1 bg-white/5 rounded-2xl blur-md opacity-30 group-hover:opacity-100 transition-opacity duration-300 z-[-1]"></div>
+
                             <div className="flex items-center gap-3">
                                 <div className={`p-2 rounded-lg transition-colors ${
-                                    hasSevereContent ? 'bg-red-500/20 text-red-400 group-hover:bg-red-500/30' : 'bg-slate-500/20 text-slate-400 group-hover:bg-slate-500/30'
+                                    hasSevereContent ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-slate-700/50 text-slate-300 border border-white/5'
                                 }`}>
-                                    <ShieldAlert size={20} />
+                                   {hasSevereContent ? <ShieldAlert size={20} /> : <Info size={20} />}
                                 </div>
                                 <div className="text-left">
-                                    <h3 className="text-slate-200 font-bold text-base">Content Rating</h3>
-                                    <p className="text-slate-400 text-xs flex items-center gap-2">
-                                        {item.maturityRating ? `Rated ${item.maturityRating}` : 'Content Advisory'}
-                                        {hasSevereContent && <span className="text-red-400 font-semibold">• Severe Content</span>}
+                                    <h3 className="text-sm font-bold text-white">Content Advisory</h3>
+                                    <p className="text-xs text-slate-400">
+                                        {item.contentAdvisory ? "Content warnings present" : "View content details"}
                                     </p>
                                 </div>
                             </div>
-                            <ChevronDown size={20} className={`text-slate-400 transition-transform duration-300 ${isRatingExpanded ? 'rotate-180' : ''}`} />
+                            <ChevronDown size={20} className={`text-slate-500 transition-transform duration-300 ${isRatingExpanded ? 'rotate-180' : ''}`} />
                         </button>
 
-                        <div className={`transition-all duration-300 ease-in-out ${isRatingExpanded ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                            <div className="p-4 pt-0 border-t border-white/5 space-y-3">
-                               {item.contentRatingDetails ? item.contentRatingDetails.map((detail, idx) => (
-                                   <ContentRatingItem key={idx} detail={detail} />
-                               )) : (
-                                   <p className="text-sm text-slate-400 p-2 italic">{item.contentAdvisory || "No detailed content rating available."}</p>
-                               )}
+                        <div className={`transition-all duration-300 ease-in-out bg-black/20 ${isRatingExpanded ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+                            <div className="p-4 pt-0 space-y-3">
+                                <div className="h-px w-full bg-white/5 mb-4"></div>
+                                {item.contentAdvisory && (
+                                    <div className="mb-4 p-3 bg-white/5 rounded-xl border border-white/5">
+                                        <h4 className="text-xs font-bold text-slate-300 uppercase mb-1">Advisory Summary</h4>
+                                        <p className="text-sm text-slate-200 leading-relaxed">{item.contentAdvisory}</p>
+                                    </div>
+                                )}
+                                
+                                <div className="grid gap-2">
+                                    {item.contentRatingDetails?.map((detail, idx) => (
+                                        <ContentRatingItem key={idx} detail={detail} />
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </div>
                 ) : null}
 
-                <div className="space-y-8">
-                    <div className="bg-white/[0.03] backdrop-blur-3xl p-6 rounded-3xl border border-white/[0.05] shadow-glass">
-                        <h2 className="text-xl font-semibold mb-4 text-white flex items-center gap-2">
-                            Storyline
-                        </h2>
-                        <p className="text-slate-300 leading-relaxed text-lg font-light">
-                        {item.description || "No description available."}
-                        </p>
-                    </div>
+                {/* Cast Section */}
+                {item.cast && item.cast.length > 0 && (
+                     <div className="mb-8">
+                         <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                             <Users size={20} className="text-primary" /> Cast
+                         </h3>
+                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                             {item.cast.map(actor => (
+                                 <div key={actor} className="bg-white/5 rounded-xl p-3 border border-white/5 flex items-center gap-3 hover:bg-white/10 transition-colors group/actor relative overflow-hidden">
+                                     {/* Actor Glow */}
+                                     <div className="absolute -inset-2 bg-white/10 rounded-xl blur-md opacity-0 group-hover/actor:opacity-100 transition-opacity duration-300 z-[-1]"></div>
 
-                    {/* Top Cast Section - Compact Strip */}
-                    {item.cast && item.cast.length > 0 && (
-                        <div className="bg-white/[0.03] backdrop-blur-3xl p-4 md:p-6 rounded-3xl border border-white/[0.05] shadow-glass">
-                            <h2 className="text-xl font-semibold mb-4 text-white flex items-center gap-2">
-                                <Users size={20} className="text-slate-200" /> Top Cast
-                            </h2>
-                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-8 gap-3">
-                                {item.cast.map((actor, idx) => (
-                                    <div key={idx} className="flex flex-col items-center text-center p-2 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 transition-colors group">
-                                        <div className="w-14 h-14 rounded-full overflow-hidden shadow-md mb-2 bg-slate-700 ring-2 ring-white/10 group-hover:ring-white/30 transition-all">
-                                             <img 
-                                                src={getBingUrl(actor, 'cast')} 
-                                                alt={actor}
-                                                className="w-full h-full object-cover"
-                                                loading="lazy"
-                                                onError={(e) => {
-                                                    e.currentTarget.style.display = 'none';
-                                                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                                }}
-                                             />
-                                             <div className="hidden w-full h-full flex items-center justify-center bg-slate-700 text-xs font-bold text-slate-400">
-                                                {actor.charAt(0)}
-                                             </div>
-                                        </div>
-                                        <span className="text-xs font-medium text-slate-300 leading-tight line-clamp-2">{actor}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                                     <img 
+                                        src={getBingUrl(actor, 'cast')} 
+                                        alt={actor}
+                                        className="w-10 h-10 rounded-full object-cover bg-slate-800"
+                                        loading="lazy"
+                                     />
+                                     <span className="text-sm font-medium text-slate-200 truncate">{actor}</span>
+                                 </div>
+                             ))}
+                         </div>
+                     </div>
+                )}
 
-                    {/* Seasons Section for TV Shows/Anime */}
-                    {isSeries && item.seasons && item.seasons.length > 0 && (
-                        <div className="space-y-4">
-                            <h2 className="text-xl font-semibold pl-2 flex items-center gap-2 text-slate-200">
-                            Episodes & Seasons
-                            </h2>
-                            <div className="flex flex-col gap-4">
-                                {item.seasons.map((season) => (
-                                    <div key={season.seasonNumber} className="bg-white/[0.03] backdrop-blur-2xl border border-white/[0.05] rounded-2xl overflow-hidden transition-all duration-300 hover:bg-white/10 hover:border-white/10 shadow-glass">
-                                        <button 
+                {/* Seasons Section (If TV/Anime) */}
+                {isSeries && item.seasons && item.seasons.length > 0 && (
+                    <div className="mb-8">
+                        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                            <MonitorPlay size={20} className="text-primary" /> Seasons
+                        </h3>
+                        <div className="space-y-3">
+                            {item.seasons.map((season) => (
+                                <div key={season.seasonNumber} className="bg-white/[0.03] border border-white/[0.05] rounded-xl overflow-hidden shadow-glass relative group/season">
+                                    {/* Season Glow */}
+                                    <div className="absolute -inset-1 bg-white/5 rounded-xl blur-md opacity-20 group-hover/season:opacity-50 transition-opacity duration-300 z-[-1]"></div>
+
+                                    <button 
                                         onClick={() => toggleSeason(season.seasonNumber)}
-                                        className="w-full p-5 flex items-center justify-between text-left focus:outline-none"
-                                        >
-                                            <div className="flex flex-col">
-                                                <h4 className="font-bold text-white text-lg flex items-center gap-3">
-                                                    Season {season.seasonNumber}
-                                                    {season.title && <span className="text-sm font-normal text-slate-400 italic bg-black/20 px-2 py-0.5 rounded border border-white/5">{season.title}</span>}
-                                                </h4>
-                                                <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-2">
-                                                    <span className="bg-white/10 px-2 py-0.5 rounded">{season.episodeCount} Episodes</span>
-                                                    <span>•</span>
-                                                    <span>Premiered {formatDate(season.releaseDate)}</span>
+                                        className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors text-left relative z-10"
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className="bg-white/10 w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg text-white border border-white/10 shadow-inner">
+                                                {season.seasonNumber}
+                                            </div>
+                                            <div>
+                                                <h4 className="font-bold text-white text-lg">{season.title || `Season ${season.seasonNumber}`}</h4>
+                                                <p className="text-xs text-slate-400">
+                                                    {season.episodeCount} Episodes • {season.releaseDate ? season.releaseDate.split('-')[0] : 'Unknown'}
                                                 </p>
                                             </div>
-                                            <div className={`p-2 rounded-full bg-white/5 transition-transform duration-300 ${expandedSeason === season.seasonNumber ? 'rotate-180 bg-white/10' : ''}`}>
-                                                <ChevronDown className="text-slate-300" size={20} />
-                                            </div>
-                                        </button>
-                                        
-                                        {/* Expanded Episodes List */}
-                                        {expandedSeason === season.seasonNumber && (
-                                            <div className="border-t border-white/5 bg-black/10 p-2 md:p-4">
-                                                {loadingSeason === season.seasonNumber ? (
-                                                    <div className="flex justify-center py-8">
-                                                        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white/50"></div>
-                                                    </div>
-                                                ) : episodesCache[season.seasonNumber] && episodesCache[season.seasonNumber].length > 0 ? (
-                                                    <div className="space-y-4">
-                                                        {episodesCache[season.seasonNumber].map((ep) => (
-                                                            <div key={ep.episodeNumber} className="flex flex-col md:flex-row gap-4 p-4 rounded-xl hover:bg-white/5 transition-colors group border border-transparent hover:border-white/5 items-start">
-                                                                {/* Episode Image */}
-                                                                <div className="w-full md:w-40 aspect-video rounded-lg overflow-hidden bg-black/20 flex-shrink-0 border border-white/5 relative">
-                                                                     <img 
-                                                                        src={ep.stillUrl ? getProxiedUrl(ep.stillUrl) : getBingUrl(`${item.title} "${ep.title}"`, 'episode')}
-                                                                        alt={ep.title}
-                                                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                                                        loading="lazy"
-                                                                        onError={(e) => {
-                                                                            // Fallback to title card style if image fails
-                                                                            e.currentTarget.style.display = 'none';
-                                                                            e.currentTarget.parentElement!.classList.add('flex', 'items-center', 'justify-center');
-                                                                            e.currentTarget.parentElement!.innerHTML = `<span class="text-xs text-slate-500 font-mono">Ep ${ep.episodeNumber}</span>`;
-                                                                        }}
-                                                                     />
-                                                                     <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors"></div>
-                                                                </div>
-                                                                
-                                                                <div className="flex-1 w-full">
-                                                                     <div className="flex flex-wrap justify-between items-start mb-1 gap-2">
-                                                                        <h5 className="font-bold text-slate-200 group-hover:text-white transition-colors text-base">
-                                                                            <span className="text-slate-500 font-mono mr-2">#{ep.episodeNumber}</span>
-                                                                            {ep.title}
-                                                                        </h5>
-                                                                        <span className="text-xs bg-black/40 border border-white/10 px-2 py-1 rounded text-slate-300 flex items-center gap-1 whitespace-nowrap">
-                                                                            <Star size={10} className="text-yellow-500" fill="currentColor" /> {ep.rating}
-                                                                        </span>
-                                                                    </div>
-                                                                    <p className="text-xs text-slate-500 mb-2">{formatDate(ep.airDate)}</p>
-                                                                    <p className="text-sm text-slate-400 leading-relaxed line-clamp-3">
-                                                                        {ep.overview}
-                                                                    </p>
-                                                                </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                             {loadingSeason === season.seasonNumber && <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white"></div>}
+                                             <ChevronDown size={20} className={`text-slate-500 transition-transform duration-300 ${expandedSeason === season.seasonNumber ? 'rotate-180' : ''}`} />
+                                        </div>
+                                    </button>
+                                    
+                                    {/* Episodes List */}
+                                    <div className={`transition-all duration-500 ease-in-out bg-black/20 ${expandedSeason === season.seasonNumber ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+                                        <div className="p-4 pt-0 space-y-3">
+                                            <div className="h-px w-full bg-white/5 mb-4"></div>
+                                            {episodesCache[season.seasonNumber] ? (
+                                                episodesCache[season.seasonNumber].map((ep) => (
+                                                    <div key={ep.episodeNumber} className="flex gap-4 p-3 hover:bg-white/5 rounded-xl transition-colors group/ep relative">
+                                                        <div className="flex-shrink-0 w-24 h-14 bg-slate-800 rounded-lg overflow-hidden relative shadow-md">
+                                                            {ep.stillUrl ? (
+                                                                <img src={ep.stillUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
+                                                            ) : (
+                                                                <img src={getBingUrl(`${item.title} season ${season.seasonNumber} episode ${ep.episodeNumber}`, 'episode')} alt="" className="w-full h-full object-cover opacity-60" loading="lazy" />
+                                                            )}
+                                                            <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/ep:opacity-100 transition-opacity">
+                                                                <PlayCircle size={20} className="text-white drop-shadow-lg" />
                                                             </div>
-                                                        ))}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex justify-between items-start">
+                                                                <h5 className="text-sm font-bold text-slate-200 truncate pr-2">{ep.episodeNumber}. {ep.title}</h5>
+                                                                <span className="text-[10px] text-slate-500 font-mono whitespace-nowrap">{ep.airDate}</span>
+                                                            </div>
+                                                            <p className="text-xs text-slate-400 mt-1 line-clamp-2 leading-relaxed">{ep.overview || "No description available."}</p>
+                                                            {ep.rating > 0 && (
+                                                                <div className="flex items-center gap-1 mt-1.5">
+                                                                    <Star size={8} className="text-yellow-500" fill="currentColor" />
+                                                                    <span className="text-[10px] text-slate-400 font-bold">{ep.rating}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                ) : (
-                                                    <div className="text-center py-8 text-slate-500 bg-black/20 rounded-xl m-2">No episode details available.</div>
-                                                )}
-                                            </div>
-                                        )}
+                                                ))
+                                            ) : (
+                                                <div className="text-center py-4 text-slate-500 text-sm">No episodes found.</div>
+                                            )}
+                                        </div>
                                     </div>
-                                ))}
-                            </div>
+                                </div>
+                            ))}
                         </div>
-                    )}
-                </div>
-                
-                {/* Recommendations Section */}
-                <div className="mt-16 pt-8 border-t border-white/5">
-                    <h2 className="text-2xl font-bold mb-8 text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">You Might Also Like</h2>
-                    {recommendations.length > 0 ? (
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    </div>
+                )}
+
+                {/* Recommendations */}
+                {recommendations.length > 0 && (
+                    <div className="mb-12">
+                        <h3 className="text-xl font-bold text-white mb-6 pl-2 border-l-4 border-primary">You Might Also Like</h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 md:gap-6">
                             {recommendations.map(rec => (
                                 <MediaCard key={rec.id} item={rec} />
                             ))}
                         </div>
-                    ) : (
-                        <div className="flex justify-center py-10">
-                            <div className="bg-white/5 px-6 py-3 rounded-full animate-pulse text-slate-400 text-sm border border-white/5">Looking for similar titles...</div>
-                        </div>
-                    )}
-                </div>
+                    </div>
+                )}
 
             </div>
             </div>
         </div>
-        </div> 
-        {/* ^^^ ADDED THIS MISSING DIV to close min-h-screen */}
 
-        {/* Trailer Modal */}
-        {showTrailerModal && (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-3xl animate-in fade-in duration-200">
-                <div 
-                    className="absolute inset-0" 
-                    onClick={(e) => { e.stopPropagation(); setShowTrailerModal(false); }}
-                ></div>
-                <div className="relative w-full max-w-4xl aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/10 flex flex-col">
-                    <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-start z-10 pointer-events-none">
-                         <div className="pointer-events-auto">
-                            {item.trailerUrl && (
-                                <a 
-                                    href={item.trailerUrl} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="flex items-center gap-2 px-4 py-2 bg-black/50 hover:bg-red-600/80 text-white rounded-full backdrop-blur-md transition-colors border border-white/10 text-sm font-medium"
-                                >
-                                    <ExternalLink size={16} /> Open in YouTube
-                                </a>
-                            )}
-                         </div>
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); setShowTrailerModal(false); }}
-                            className="pointer-events-auto bg-black/50 hover:bg-black/70 text-white p-2 rounded-full backdrop-blur-md transition-colors border border-white/10"
-                        >
-                            <X size={24} />
-                        </button>
-                    </div>
-
-                    {trailerEmbedUrl ? (
-                        <>
-                         <iframe
-                            src={trailerEmbedUrl}
-                            title="Trailer"
-                            className="w-full h-full"
-                            allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                            referrerPolicy="strict-origin-when-cross-origin"
-                            allowFullScreen
-                        ></iframe>
-                         <div className="absolute bottom-2 left-0 right-0 text-center pointer-events-none">
-                            <p className="text-[10px] text-slate-400 bg-black/40 inline-block px-2 py-1 rounded">If video doesn't load, use "Open in YouTube"</p>
-                        </div>
-                        </>
-                    ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center text-white gap-4 bg-slate-900">
-                             <p className="text-lg font-medium text-slate-300">Preview unavailable directly</p>
-                             {item.trailerUrl ? (
-                                <a 
-                                    href={item.trailerUrl}
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-colors font-bold"
-                                >
-                                    <PlayCircle size={20} /> Watch on YouTube
-                                </a>
-                             ) : (
-                                <p className="text-slate-500">No trailer link provided</p>
-                             )}
-                        </div>
-                    )}
+        {/* Video Modal */}
+        {showTrailerModal && trailerEmbedUrl && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-200" onClick={() => setShowTrailerModal(false)}>
+                <div className="w-full max-w-5xl aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl relative border border-white/10 ring-1 ring-white/5" onClick={e => e.stopPropagation()}>
+                    <button 
+                        onClick={() => setShowTrailerModal(false)}
+                        className="absolute top-4 right-4 z-50 bg-black/50 hover:bg-white/20 p-2 rounded-full text-white transition-colors backdrop-blur-md border border-white/10"
+                    >
+                        <X size={24} />
+                    </button>
+                    <iframe 
+                        src={`${trailerEmbedUrl}&autoplay=1`}
+                        title="Trailer"
+                        className="w-full h-full"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                    ></iframe>
                 </div>
             </div>
         )}
+        </div>
     </>
   );
 };

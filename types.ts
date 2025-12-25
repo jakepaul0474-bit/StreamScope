@@ -52,6 +52,7 @@ export interface ContentRatingDetail {
 
 export interface MediaItem {
   id: string;
+  imdbId?: string;      // New: IMDb ID for external linking
   title: string;
   description?: string; // Made optional for list view optimization
   posterUrl?: string;   // Made optional
@@ -90,11 +91,6 @@ export interface FilterState {
   themes: string[];        // New: Specific tags like "Gore", "Isekai", "Cyberpunk"
   aspectRatio: string[];   // New: IMAX, Widescreen, etc.
   contentDescriptors: string[]; // New: Nudity, Foul Language, etc.
-  sortBy: 'trending' | 'trending_week' | 'popular' | 'newest' | 'rating' | 'in_theaters';
-}
-
-export interface NavItem {
-  label: string;
-  path: string;
-  icon: React.ReactNode;
+  contentStyle: 'All' | 'Live Action' | 'Anime'; // New: Toggle for Real Life vs Anime
+  sortBy: 'trending' | 'trending_week' | 'popular' | 'in_theaters' | 'newest' | 'rating';
 }

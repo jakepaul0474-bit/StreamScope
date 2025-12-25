@@ -6,20 +6,24 @@ import { DetailsView } from './components/DetailsView';
 import WatchlistPage from './pages/WatchlistPage';
 import { MediaType } from './types';
 import { Menu } from 'lucide-react';
-import { MediaProvider } from './context/MediaContext';
+import { MediaProvider, useMediaContext } from './context/MediaContext';
 
 const Layout: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
   const isDetailsPage = location.pathname.startsWith('/details');
+  const { isImmersiveMode } = useMediaContext();
 
   return (
-    <div className="flex bg-transparent min-h-screen font-sans text-slate-100 relative selection:bg-primary/30 selection:text-white">
-      {/* Mobile Menu Button - Liquid Glass & Compact - Hidden on Details Page to prevent overlap with Back Button */}
+    <div className="flex bg-transparent min-h-screen font-sans text-slate-100 relative selection:bg-primary/30 selection:text-white overflow-x-hidden">
+      {/* Mobile Menu Button - Small & Compact Floating */}
       {!isDetailsPage && (
         <button 
           onClick={() => setIsMobileMenuOpen(true)}
-          className="md:hidden fixed top-4 left-4 z-50 bg-white/[0.05] backdrop-blur-xl border border-white/10 p-2 rounded-lg shadow-[0_4px_12px_rgba(0,0,0,0.1)] text-slate-300 hover:text-white hover:bg-white/10 transition-all active:scale-95 ring-1 ring-white/5"
+          className={`
+            md:hidden fixed top-3 left-3 z-[60] text-slate-300 hover:text-white transition-all duration-300 active:scale-95 bg-black/20 backdrop-blur-md p-1.5 rounded-md border border-white/5 hover:bg-white/10
+            ${isImmersiveMode || isMobileMenuOpen ? '-translate-x-[200%] opacity-0' : 'translate-x-0 opacity-100'}
+          `}
           aria-label="Open Menu"
         >
           <Menu size={20} />

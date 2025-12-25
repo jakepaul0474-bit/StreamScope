@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Filter, Search, HelpCircle, X, ChevronDown, ChevronUp, SlidersHorizontal, Check, Square, CheckSquare, Loader2, Tag, Monitor, ShieldAlert } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Filter, Search, X, ChevronDown, SlidersHorizontal, Check, Square, CheckSquare, Loader2, Tag, Monitor, ShieldAlert, Film, Tv, LayoutGrid, Zap, Sparkles, Calendar } from 'lucide-react';
 import { FilterState, MediaType } from '../types';
+import { useNavigate } from 'react-router-dom';
 
 interface FilterBarProps {
   filters: FilterState;
@@ -112,8 +113,21 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
 
   const hasActiveValue = multi && Array.isArray(value) ? value.length > 0 : value !== 'All';
 
+  // Glow color mapping based on theme
+  const glowColors = {
+      default: "bg-blue-500/30",
+      accent: "bg-pink-500/30",
+      yellow: "bg-yellow-500/30",
+      green: "bg-green-500/30",
+      red: "bg-red-500/30",
+      purple: "bg-purple-500/30",
+  };
+
   return (
-    <div className="relative" ref={containerRef}>
+    <div className="relative group/btn" ref={containerRef}>
+      {/* Halo Glow - Constant Low Opacity, High on Hover */}
+      <div className={`absolute -inset-1 rounded-xl blur-md opacity-30 group-hover/btn:opacity-100 transition-opacity duration-300 z-[-1] ${hasActiveValue ? 'opacity-60' : ''} ${glowColors[colorTheme]}`}></div>
+
       {/* Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -123,7 +137,7 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
           bg-white/[0.03] backdrop-blur-xl
           border transition-all duration-300
           text-xs font-medium shadow-sm hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]
-          group
+          relative z-10
           ${hasActiveValue ? themeStyles[colorTheme].replace('text-slate-200', 'text-white bg-white/10') : themeStyles[colorTheme]}
         `}
       >
@@ -141,9 +155,9 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 w-64 max-h-80 bg-[#0a0f1d]/80 backdrop-blur-3xl border border-white/10 rounded-xl shadow-2xl z-[100] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-left">
-          
-          {/* Search Input */}
+        <div className="absolute top-full left-0 mt-2 w-64 max-h-80 bg-[#0a0f1d]/90 backdrop-blur-3xl border border-white/10 rounded-xl shadow-2xl z-[100] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-left">
+          {/* ... (Menu content remains same) ... */}
+           {/* Search Input */}
           {searchable && (
             <div className="p-2 border-b border-white/5 bg-white/5 sticky top-0 z-10">
               <div className="relative">
@@ -220,16 +234,275 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
   );
 };
 
+const YearFilter: React.FC<{
+    value: string;
+    onChange: (val: string) => void;
+}> = ({ value, onChange }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const sliderRef = useRef<HTMLDivElement>(null);
+    
+    // Config
+    const MIN_YEAR = 1950;
+    const MAX_YEAR = new Date().getFullYear() + 1;
+    const GAP = 1; // Minimum years between thumbs
+
+    const [minVal, setMinVal] = useState(MIN_YEAR);
+    const [maxVal, setMaxVal] = useState(MAX_YEAR);
+
+    // Initialize from props
+    useEffect(() => {
+        if (value && value !== 'All') {
+             if (value === 'Classic') {
+                 setMinVal(1900);
+                 setMaxVal(1959);
+             } else if (value.includes('-')) {
+                 const [s, e] = value.split('-');
+                 const parsedMin = Number(s);
+                 const parsedMax = Number(e);
+                 setMinVal(isNaN(parsedMin) ? MIN_YEAR : parsedMin);
+                 setMaxVal(isNaN(parsedMax) ? MAX_YEAR : parsedMax);
+             } else if (!isNaN(Number(value))) {
+                 setMinVal(Number(value));
+                 setMaxVal(Number(value));
+             }
+        } else {
+             setMinVal(MIN_YEAR);
+             setMaxVal(MAX_YEAR);
+        }
+    }, [value, isOpen]);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleApply = () => {
+        onChange(`${minVal}-${maxVal}`);
+        setIsOpen(false);
+    };
+
+    const getPercent = useCallback((val: number) => {
+        const clampedVal = Math.min(Math.max(val, MIN_YEAR), MAX_YEAR);
+        return Math.round(((clampedVal - MIN_YEAR) / (MAX_YEAR - MIN_YEAR)) * 100);
+    }, [MIN_YEAR, MAX_YEAR]);
+
+    const handleRangeChange = (event: React.ChangeEvent<HTMLInputElement>, type: 'min' | 'max') => {
+        const val = Number(event.target.value);
+        if (type === 'min') {
+            const newMin = Math.min(val, maxVal - GAP);
+            setMinVal(newMin);
+        } else {
+            const newMax = Math.max(val, minVal + GAP);
+            setMaxVal(newMax);
+        }
+    };
+
+    const presets = [
+        { v: 'All', l: 'All Years' },
+        { v: '2025', l: '2025' },
+        { v: '2024', l: '2024' },
+        { v: '2023', l: '2023' },
+        { v: '2020-2022', l: '2020-2022' },
+        { v: '2010-2019', l: '2010s' },
+        { v: '2000-2009', l: '2000s' },
+        { v: '1990-1999', l: '90s' },
+        { v: '1980-1989', l: '80s' },
+        { v: '1970-1979', l: '70s' },
+        { v: 'Classic', l: 'Classics (<1970)' },
+    ];
+
+    let displayLabel = "Year";
+    if (value !== 'All') {
+        const preset = presets.find(p => p.v === value);
+        displayLabel = preset ? preset.l : (minVal === maxVal ? `${minVal}` : `${minVal}-${maxVal}`);
+    }
+
+    return (
+        <div className="relative group/btn" ref={containerRef}>
+            {/* Halo Glow - Constant Low Opacity, High on Hover */}
+            <div className={`absolute -inset-1 rounded-xl blur-md opacity-30 group-hover/btn:opacity-100 transition-opacity duration-300 z-[-1] ${value !== 'All' ? 'opacity-60 bg-blue-500/40' : 'bg-blue-500/30'}`}></div>
+
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className={`
+                    flex items-center justify-between gap-2 
+                    min-w-[130px] px-3 py-2 rounded-xl
+                    bg-white/[0.03] backdrop-blur-xl
+                    border transition-all duration-300
+                    text-xs font-medium shadow-sm hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]
+                    relative z-10
+                    ${value !== 'All' ? 'border-blue-500/30 text-blue-400 bg-blue-500/5' : 'border-white/10 text-slate-200 hover:border-white/20 hover:bg-white/5'}
+                `}
+            >
+                <div className="flex items-center gap-2 truncate">
+                    <span className="opacity-70"><Calendar size={12} /></span>
+                    <span className="truncate max-w-[90px]">{displayLabel}</span>
+                </div>
+                <ChevronDown size={12} className={`transition-transform duration-300 opacity-70 ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isOpen && (
+                <div className="absolute top-full left-0 mt-2 w-72 bg-[#0a0f1d]/90 backdrop-blur-3xl border border-white/10 rounded-xl shadow-2xl z-[100] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-left">
+                     {/* ... (Slider content remains same) ... */}
+                      <div className="p-4 border-b border-white/5 bg-white/5">
+                        <div className="flex justify-between items-center mb-4">
+                             <div className="text-[10px] uppercase font-bold text-slate-500">Range</div>
+                             <div className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
+                                {minVal} - {maxVal}
+                             </div>
+                        </div>
+
+                        {/* Custom Slider Construction */}
+                        <div className="relative h-10 w-full flex items-center justify-center">
+                            {/* Visual Track */}
+                            <div className="absolute w-full h-1.5 bg-white/10 rounded-full z-0 overflow-hidden">
+                                 {/* Colored Range */}
+                                 <div 
+                                    className="absolute h-full bg-primary/80 transition-all duration-75" 
+                                    style={{ 
+                                        left: `${getPercent(minVal)}%`, 
+                                        width: `${getPercent(maxVal) - getPercent(minVal)}%` 
+                                    }} 
+                                 />
+                            </div>
+
+                            {/* Range Inputs */}
+                            <input 
+                                type="range" 
+                                min={MIN_YEAR} 
+                                max={MAX_YEAR} 
+                                value={minVal} 
+                                onChange={(e) => handleRangeChange(e, 'min')}
+                                className="absolute pointer-events-none appearance-none z-20 h-1.5 w-full opacity-0 cursor-pointer"
+                                style={{ zIndex: minVal > MAX_YEAR - 10 ? 25 : 20 }}
+                            />
+                            <input 
+                                type="range" 
+                                min={MIN_YEAR} 
+                                max={MAX_YEAR} 
+                                value={maxVal} 
+                                onChange={(e) => handleRangeChange(e, 'max')}
+                                className="absolute pointer-events-none appearance-none z-20 h-1.5 w-full opacity-0 cursor-pointer"
+                            />
+
+                            {/* Visual Thumbs - Positioned via CSS/Style to match inputs */}
+                            <div 
+                                className="absolute h-4 w-4 bg-white rounded-full shadow-[0_0_10px_rgba(0,0,0,0.5)] border-2 border-primary z-30 pointer-events-none transition-all duration-75"
+                                style={{ left: `calc(${getPercent(minVal)}% - 8px)` }}
+                            />
+                            <div 
+                                className="absolute h-4 w-4 bg-white rounded-full shadow-[0_0_10px_rgba(0,0,0,0.5)] border-2 border-primary z-30 pointer-events-none transition-all duration-75"
+                                style={{ left: `calc(${getPercent(maxVal)}% - 8px)` }}
+                            />
+                            
+                            <style>{`
+                                input[type=range]::-webkit-slider-thumb {
+                                    pointer-events: auto;
+                                    width: 20px;
+                                    height: 20px;
+                                    -webkit-appearance: none;
+                                    cursor: grab;
+                                }
+                                input[type=range]::-moz-range-thumb {
+                                    pointer-events: auto;
+                                    width: 20px;
+                                    height: 20px;
+                                    cursor: grab;
+                                    border: none;
+                                }
+                            `}</style>
+                        </div>
+                        
+                        <div className="flex justify-between text-[10px] text-slate-500 mt-1 font-mono">
+                            <span>{MIN_YEAR}</span>
+                            <span>{MAX_YEAR}</span>
+                        </div>
+
+                        <button 
+                            onClick={handleApply}
+                            className="w-full mt-4 bg-primary hover:bg-blue-600 text-white rounded-lg py-2 text-xs font-bold transition-colors shadow-lg"
+                        >
+                            Apply Filter
+                        </button>
+                     </div>
+
+                     <div className="overflow-y-auto max-h-48 p-1 custom-scrollbar">
+                        <div className="text-[10px] uppercase font-bold text-slate-500 px-3 py-2">Quick Select</div>
+                        {presets.map((opt) => (
+                            <button
+                                key={opt.v}
+                                onClick={() => {
+                                    onChange(opt.v);
+                                    setIsOpen(false);
+                                }}
+                                className={`
+                                    w-full text-left px-3 py-2 rounded-lg text-sm transition-all duration-200 flex items-center justify-between
+                                    ${value === opt.v ? 'bg-white/10 text-white font-medium border border-white/5' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}
+                                `}
+                            >
+                                {opt.l}
+                                {value === opt.v && <Check size={14} className="text-primary" />}
+                            </button>
+                        ))}
+                     </div>
+                </div>
+            )}
+        </div>
+    )
+}
+
 const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, isLoading }) => {
   const [showSearchHelp, setShowSearchHelp] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [allowOverflow, setAllowOverflow] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(!!filters.searchQuery);
+  const navigate = useNavigate();
+
+  // Content Style Toggle Logic
+  const [pillStyle, setPillStyle] = useState({ left: 4, width: 50, opacity: 0 });
+  const allRef = useRef<HTMLButtonElement>(null);
+  const liveRef = useRef<HTMLButtonElement>(null);
+  const animeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+        let target: HTMLButtonElement | null = null;
+        if (filters.contentStyle === 'All') target = allRef.current;
+        else if (filters.contentStyle === 'Live Action') target = liveRef.current;
+        else if (filters.contentStyle === 'Anime') target = animeRef.current;
+
+        if (target) {
+            setPillStyle({
+                left: target.offsetLeft,
+                width: target.offsetWidth,
+                opacity: 1
+            });
+        }
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [filters.contentStyle, category, isSearchOpen]);
+
+  // Updated Categories: Removed Labels for Movie/Series, kept All
+  const categories = [
+    { id: 'All', label: 'All', path: '/', icon: <LayoutGrid size={20} />, color: 'from-blue-600 to-indigo-600', showLabel: true },
+    { id: MediaType.MOVIE, label: 'Movies', path: '/movies', icon: <Film size={20} />, color: 'from-cyan-500 to-blue-600', showLabel: false },
+    { id: MediaType.SHOW, label: 'Series', path: '/shows', icon: <Tv size={20} />, color: 'from-fuchsia-500 to-purple-600', showLabel: false },
+  ];
   
-  // Handle overflow visibility for dropdowns after animation
+  useEffect(() => {
+    if (filters.searchQuery) setIsSearchOpen(true);
+  }, [filters.searchQuery]);
+
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout>;
     if (isExpanded) {
-      timeout = setTimeout(() => setAllowOverflow(true), 300); // Match transition duration
+      timeout = setTimeout(() => setAllowOverflow(true), 300);
     } else {
       setAllowOverflow(false);
     }
@@ -249,7 +522,8 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
       { value: 'rating', label: 'Top Rated' },
   ];
 
-  // Extended Genre List
+  // (Genre lists etc. remain same)
+  // ...
   const genres = [
     { v: 'All', l: 'All Genres' },
     { v: 'Action', l: 'Action' },
@@ -271,32 +545,6 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
     { v: 'War', l: 'War' },
     { v: 'Western', l: 'Western' },
   ];
-
-  // Anime Specific Themes & Tags
-  const animeThemes = [
-    { v: 'All', l: 'All Themes' },
-    { v: 'Gore', l: 'Gore / Splatter' },
-    { v: 'Isekai', l: 'Isekai (Other World)' },
-    { v: 'Shonen', l: 'Shonen' },
-    { v: 'Seinen', l: 'Seinen' },
-    { v: 'Shojo', l: 'Shojo' },
-    { v: 'Mecha', l: 'Mecha' },
-    { v: 'Psychological', l: 'Psychological' },
-    { v: 'Slice of Life', l: 'Slice of Life' },
-    { v: 'Ecchi', l: 'Ecchi' },
-    { v: 'Harem', l: 'Harem' },
-    { v: 'Reverse Harem', l: 'Reverse Harem' },
-    { v: 'School', l: 'School Life' },
-    { v: 'Sports', l: 'Sports' },
-    { v: 'Supernatural', l: 'Supernatural' },
-    { v: 'Dark Fantasy', l: 'Dark Fantasy' },
-    { v: 'Cyberpunk', l: 'Cyberpunk' },
-    { v: 'Post-Apocalyptic', l: 'Post-Apocalyptic' },
-    { v: 'Military', l: 'Military' },
-    { v: 'Iyashikei', l: 'Healing (Iyashikei)' },
-  ];
-
-  // General Themes for Movies/Shows
   const generalThemes = [
     { v: 'All', l: 'All Themes' },
     { v: 'Gore', l: 'Gore / Extreme Violence' },
@@ -316,9 +564,12 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
     { v: 'Satire', l: 'Satire' },
     { v: 'Found Footage', l: 'Found Footage' },
     { v: 'Martial Arts', l: 'Martial Arts' },
+    { v: 'Isekai', l: 'Isekai' },
+    { v: 'Shonen', l: 'Shonen' },
+    { v: 'Seinen', l: 'Seinen' },
+    { v: 'Shojo', l: 'Shojo' },
+    { v: 'Mecha', l: 'Mecha' },
   ];
-
-  // Specific Content Descriptors (Maturity Types)
   const contentDescriptors = [
     { v: 'All', l: 'All Content' },
     { v: 'Nudity', l: 'Nudity / Naked' },
@@ -331,11 +582,6 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
     { v: 'Gore', l: 'Gore' },
     { v: 'Self-Harm', l: 'Self-Harm' },
   ];
-
-  // Select theme list based on category
-  const activeThemeList = category === MediaType.ANIME ? animeThemes : generalThemes;
-
-  // Aspect Ratio List
   const aspectRatios = [
     { v: 'All', l: 'All Ratios' },
     { v: 'IMAX', l: 'IMAX' },
@@ -343,8 +589,6 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
     { v: 'Standard', l: 'Standard (16:9)' },
     { v: '4:3', l: 'Classic (4:3)' },
   ];
-
-  // Extended Country List
   const countries = [
     { v: 'All', l: 'All Countries' },
     { v: 'USA', l: 'USA' },
@@ -369,19 +613,6 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
     { v: 'Turkey', l: 'Turkey' },
     { v: 'Argentina', l: 'Argentina' },
   ];
-
-  const years = [
-    { v: 'All', l: 'All Years' },
-    { v: '2025', l: '2025' },
-    { v: '2024', l: '2024' },
-    { v: '2023', l: '2023' },
-    { v: '2020-2022', l: '2020-2022' },
-    { v: '2010-2019', l: '2010s' },
-    { v: '2000-2009', l: '2000s' },
-    { v: '1990-1999', l: '90s' },
-    { v: 'Classic', l: 'Classics' },
-  ];
-
   const maturityRatings = [
     { v: 'All', l: 'All Certifications' },
     { v: 'PG', l: 'PG / Family' },
@@ -389,7 +620,6 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
     { v: 'MA', l: 'TV-MA / Mature' },
     { v: '18+', l: 'Rated 18+ / R' },
   ];
-
   const minRatings = [
     { v: 'All', l: 'Rated 5+' }, 
     { v: '9', l: '9+ (Masterpiece)' },
@@ -398,7 +628,6 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
     { v: '6', l: '6+ (Okay)' },
   ];
 
-  // Calculate active filters count
   const activeFilterCount = [
       filters.genre.length > 0,
       filters.year !== 'All',
@@ -413,104 +642,169 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
   ].filter(Boolean).length;
 
   return (
-    // Updated container background to be white/[0.02] with high blur for extreme transparency
-    <div className="w-full bg-white/[0.02] backdrop-blur-3xl border-b border-white/[0.05] sticky top-0 z-40 shadow-[0_4px_30px_rgba(0,0,0,0.1)] transition-all duration-300">
-      <div className="max-w-7xl mx-auto p-4 relative">
+    // Removed sticky from here, parent handles it
+    <div className="w-full bg-white/[0.02] backdrop-blur-3xl border-b border-white/[0.05] shadow-[0_4px_30px_rgba(0,0,0,0.1)] transition-all duration-300">
+      <div className="max-w-7xl mx-auto px-4 py-3 relative flex flex-col gap-3">
         
-        {/* Top Row: Search and Toggle */}
-        <div className="flex gap-3 items-center">
-          
-          {/* Search Input - Compact & Pill Shaped - Glass effect */}
-          {/* Added ml-12 on mobile to avoid overlap with hamburger menu */}
-          <div className="relative flex-1 group z-50 max-w-2xl ml-12 md:ml-0">
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-accent/10 rounded-full blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500"></div>
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-white z-10" size={16} />
-            <input
-              type="text"
-              placeholder={`Search ${category === 'All' ? 'movies, shows...' : category}...`}
-              value={filters.searchQuery}
-              onChange={(e) => handleChange('searchQuery', e.target.value)}
-              className="w-full bg-white/[0.03] hover:bg-white/10 border border-white/10 focus:border-white/20 text-white pl-11 pr-10 py-2 rounded-full backdrop-blur-xl shadow-inner focus:bg-white/10 focus:outline-none transition-all placeholder-slate-400/50 text-sm relative z-0"
-            />
+        {/* Main Row: Categories & Actions */}
+        <div className="flex items-center justify-between gap-3 h-10">
             
-            {/* Help Icon Toggle */}
-            <button 
-                onClick={() => setShowSearchHelp(!showSearchHelp)}
-                className={`absolute right-3 top-1/2 -translate-y-1/2 transition-colors focus:outline-none z-10 p-1 rounded-full hover:bg-white/10 ${showSearchHelp ? 'text-primary' : 'text-slate-400'}`}
-                title="Advanced Search Syntax"
-            >
-                {showSearchHelp ? <X size={14} /> : <HelpCircle size={14} />}
-            </button>
-
-            {/* Advanced Search Tooltip */}
+            {/* Category Navigation Pills - Removed Padding Left Strip */}
             <div className={`
-                absolute top-full left-0 right-0 mt-3 p-4 rounded-2xl border border-white/10 bg-[#0a0f1d]/80 backdrop-blur-3xl shadow-2xl transition-all duration-300 origin-top
-                ${showSearchHelp ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'}
+                flex items-center gap-2 transition-all duration-300 ease-in-out md:pl-0
+                ${isSearchOpen ? 'hidden md:flex opacity-0 md:opacity-100' : 'flex opacity-100'}
             `}>
-                <h4 className="text-[10px] font-bold text-primary uppercase tracking-widest mb-3 border-b border-white/5 pb-2">Search Syntax</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="bg-white/5 p-2 rounded-lg border border-white/5">
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className="text-accent font-mono text-xs">actor:</span>
-                            <span className="text-slate-200 text-xs font-medium">Cast Search</span>
-                        </div>
-                        <p className="text-[10px] text-slate-500">e.g. "actor: Cillian Murphy"</p>
+                {categories.map((cat, index) => {
+                    const isActive = category === cat.id;
+                    return (
+                        <button
+                            key={cat.id}
+                            onClick={() => navigate(cat.path)}
+                            title={cat.label}
+                            className={`
+                                relative flex items-center justify-center gap-2 px-3 py-2 rounded-xl font-bold text-sm transition-all duration-300 flex-shrink-0 group/pill
+                                ${index === 0 ? 'md:ml-0 ml-10' : ''} /* Add margin ONLY to first item on mobile to clear hamburger */
+                                ${isActive 
+                                    ? `bg-gradient-to-r ${cat.color} text-white shadow-[0_0_15px_rgba(255,255,255,0.2)] scale-105 ring-1 ring-white/20` 
+                                    : 'bg-white/5 text-slate-400 border border-white/5 hover:bg-white/10 hover:text-white'}
+                            `}
+                        >
+                            {/* Halo Glow for Category Pill - Increased Constant Visibility */}
+                            <div className={`absolute -inset-1 rounded-xl bg-primary/40 blur-md opacity-40 group-hover/pill:opacity-100 transition-opacity duration-300 z-[-1] ${isActive ? 'opacity-60' : ''}`}></div>
+
+                            {cat.icon}
+                            {cat.showLabel && <span className="hidden xs:inline">{cat.label}</span>}
+                            {isActive && (
+                                <div className="absolute inset-0 rounded-xl bg-white/20 blur-sm -z-10"></div>
+                            )}
+                        </button>
+                    )
+                })}
+            </div>
+            
+            {/* Right Side: Search & Filter Actions - Removed Padding Left Strip */}
+            <div className={`flex items-center gap-2 ${isSearchOpen ? 'flex-1 md:flex-none justify-end md:justify-start md:pl-0' : 'ml-auto'}`}>
+              
+              {/* Expandable Search Input */}
+              <div className={`
+                flex items-center transition-all duration-300 ease-in-out
+                ${isSearchOpen ? 'w-full md:w-64' : 'w-10 justify-end'}
+              `}>
+                {isSearchOpen ? (
+                    <div className="relative w-full group animate-in fade-in zoom-in-95 duration-200">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                        <input
+                            autoFocus
+                            type="text"
+                            placeholder={`Search ${category === 'All' ? 'media' : category}...`}
+                            value={filters.searchQuery}
+                            onChange={(e) => handleChange('searchQuery', e.target.value)}
+                            className="w-full bg-white/10 hover:bg-white/15 border border-white/10 focus:border-white/30 text-white pl-9 pr-8 py-2 rounded-xl backdrop-blur-xl focus:outline-none transition-all placeholder-slate-400/50 text-sm"
+                        />
+                        <button 
+                            onClick={() => {
+                                if (filters.searchQuery) {
+                                    handleChange('searchQuery', '');
+                                } else {
+                                    setIsSearchOpen(false);
+                                }
+                            }}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors p-1"
+                        >
+                            <X size={14} />
+                        </button>
                     </div>
-                    <div className="bg-white/5 p-2 rounded-lg border border-white/5">
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className="text-accent font-mono text-xs">director:</span>
-                            <span className="text-slate-200 text-xs font-medium">Director Search</span>
-                        </div>
-                        <p className="text-[10px] text-slate-500">e.g. "director: Nolan"</p>
-                    </div>
-                    <div className="bg-white/5 p-2 rounded-lg border border-white/5">
-                         <div className="flex items-center gap-2 mb-1">
-                            <span className="text-accent font-mono text-xs">plot:</span>
-                            <span className="text-slate-200 text-xs font-medium">Plot Search</span>
-                        </div>
-                        <p className="text-[10px] text-slate-500">e.g. "plot: time travel"</p>
-                    </div>
+                ) : (
+                    <button 
+                        onClick={() => setIsSearchOpen(true)}
+                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all border border-transparent hover:border-white/10 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] relative group/search"
+                        title="Search"
+                    >
+                        {/* Halo Glow for Search Button - Constant */}
+                        <div className="absolute -inset-1 rounded-xl bg-primary/30 blur-md opacity-30 group-hover/search:opacity-100 transition-opacity duration-300 z-[-1]"></div>
+                        <Search size={18} />
+                    </button>
+                )}
+              </div>
+
+              {/* Filter Toggle Button */}
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                disabled={isLoading}
+                className={`
+                    w-10 h-10 flex items-center justify-center rounded-xl transition-all duration-300 border flex-shrink-0 relative group/filter
+                    ${isExpanded 
+                        ? 'bg-white/10 text-white border-white/20 shadow-[0_0_15px_rgba(255,255,255,0.1)]' 
+                        : 'bg-white/5 text-slate-300 border-transparent hover:bg-white/10 hover:text-white hover:border-white/10'}
+                    ${isLoading ? 'opacity-80 cursor-wait' : ''}
+                `}
+                title="Filters"
+              >
+                {/* Halo Glow for Filter Toggle - Constant */}
+                <div className={`absolute -inset-1 rounded-xl bg-primary/30 blur-md opacity-30 group-hover/filter:opacity-100 transition-opacity duration-300 z-[-1] ${isExpanded ? 'opacity-50' : ''}`}></div>
+
+                {isLoading ? (
+                    <Loader2 size={18} className="animate-spin text-white" />
+                ) : (
+                    <SlidersHorizontal size={18} />
+                )}
+                {/* Active Filter Indicator Dot */}
+                {!isLoading && activeFilterCount > 0 && !isExpanded && (
+                    <span className="absolute top-2 right-2 w-2 h-2 bg-accent rounded-full shadow-lg ring-2 ring-black/20"></span>
+                )}
+              </button>
+            </div>
+        </div>
+        
+        {/* Content Style Toggle - Only Visible for Movies & Series (Not on Home) */}
+        {category !== 'All' && !isSearchOpen && (
+            <div className="flex justify-center animate-in fade-in slide-in-from-top-2 duration-300 relative group/style">
+                {/* Halo Glow for Content Style Toggle - Constant */}
+                <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-64 bg-primary/20 blur-xl opacity-20 group-hover/style:opacity-50 transition-opacity duration-500 rounded-full z-[-1]"></div>
+
+                <div className="bg-black/30 backdrop-blur-md p-1 rounded-full border border-white/10 flex items-center relative shadow-inner scale-90 md:scale-100 origin-top">
+                    <button 
+                        ref={allRef}
+                        onClick={() => handleChange('contentStyle', 'All')}
+                        className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all relative z-10 ${filters.contentStyle === 'All' ? 'text-white' : 'text-slate-400 hover:text-white'}`}
+                    >
+                        All
+                    </button>
+                    <button 
+                        ref={liveRef}
+                        onClick={() => handleChange('contentStyle', 'Live Action')}
+                        className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all relative z-10 flex items-center gap-1 ${filters.contentStyle === 'Live Action' ? 'text-white' : 'text-slate-400 hover:text-white'}`}
+                    >
+                        <Zap size={12} className={filters.contentStyle === 'Live Action' ? 'text-cyan-400' : ''} /> Live Action
+                    </button>
+                    <button 
+                        ref={animeRef}
+                        onClick={() => handleChange('contentStyle', 'Anime')}
+                        className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all relative z-10 flex items-center gap-1 ${filters.contentStyle === 'Anime' ? 'text-white' : 'text-slate-400 hover:text-white'}`}
+                    >
+                        <Sparkles size={12} className={filters.contentStyle === 'Anime' ? 'text-pink-400' : ''} /> Anime
+                    </button>
+
+                    {/* Sliding Background Pill */}
+                    <div 
+                        className={`absolute top-1 bottom-1 bg-white/10 rounded-full border border-white/10 transition-all duration-300 ease-in-out shadow-sm`}
+                        style={{
+                            left: `${pillStyle.left}px`,
+                            width: `${pillStyle.width}px`,
+                            opacity: pillStyle.opacity
+                        }}
+                    ></div>
                 </div>
             </div>
-          </div>
-
-          {/* Toggle Button */}
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            disabled={isLoading}
-            className={`
-                flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all duration-300 border select-none backdrop-blur-xl text-sm
-                ${isExpanded 
-                    ? 'bg-white/10 text-white border-white/20 shadow-[0_0_20px_rgba(255,255,255,0.1)]' 
-                    : 'bg-white/[0.03] text-slate-300 border-white/10 hover:bg-white/10 hover:text-white'}
-                ${isLoading ? 'opacity-80 cursor-wait' : ''}
-            `}
-          >
-            {isLoading ? (
-                <Loader2 size={16} className="animate-spin text-white" />
-            ) : (
-                <SlidersHorizontal size={16} />
-            )}
-            
-            <span className="hidden md:inline">{isLoading ? 'Loading...' : 'Filters'}</span>
-            
-            {!isLoading && activeFilterCount > 0 && !isExpanded && (
-                <span className="flex items-center justify-center w-5 h-5 bg-accent text-white text-[10px] rounded-full font-bold shadow-lg">
-                    {activeFilterCount}
-                </span>
-            )}
-            
-            {!isLoading && (isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
-          </button>
-        </div>
+        )}
 
         {/* Collapsible Content */}
         <div className={`
             transition-all duration-300 ease-in-out
-            ${isExpanded ? 'opacity-100 mt-4 h-auto' : 'opacity-0 mt-0 h-0'}
+            ${isExpanded ? 'opacity-100 h-auto' : 'opacity-0 h-0'}
             ${allowOverflow ? 'overflow-visible' : 'overflow-hidden'}
         `}>
-           <div className="min-h-0 space-y-4 pb-4">
+           <div className="min-h-0 space-y-4 pb-4 pt-2 border-t border-white/5 mt-2">
                 {/* Sort Options */}
                 <div className="flex flex-col md:flex-row gap-3 items-start md:items-center pb-2 border-b border-white/[0.05]">
                     <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">Sort By</span>
@@ -519,12 +813,14 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
                             <button
                                 key={option.value}
                                 onClick={() => handleChange('sortBy', option.value as any)}
-                                className={`px-4 py-1.5 rounded-full text-xs font-medium capitalize transition-all whitespace-nowrap border flex-shrink-0 backdrop-blur-xl ${
+                                className={`px-4 py-1.5 rounded-full text-xs font-medium capitalize transition-all whitespace-nowrap border flex-shrink-0 backdrop-blur-xl relative group/sort ${
                                     filters.sortBy === option.value 
                                     ? 'bg-white/10 text-white border-white/20 shadow-[0_0_15px_rgba(255,255,255,0.1)]' 
                                     : 'bg-white/[0.03] text-slate-400 border-white/5 hover:bg-white/10 hover:text-white hover:border-white/10'
                                 }`}
                             >
+                                {/* Halo Glow for Sort Pills - Constant */}
+                                <div className={`absolute -inset-1 rounded-full bg-primary/20 blur-md opacity-30 group-hover/sort:opacity-100 transition-opacity duration-300 z-[-1] ${filters.sortBy === option.value ? 'opacity-50' : ''}`}></div>
                                 {option.label}
                             </button>
                         ))}
@@ -537,26 +833,11 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
                         <Filter size={14} className="text-white" />
                     </div>
                     
-                    {category === MediaType.ANIME && (
-                      <CustomSelect 
-                        label="Format" 
-                        value={filters.animeFormat} 
-                        onChange={(v) => handleChange('animeFormat', v)} 
-                        options={[
-                          { v: 'All', l: 'All Formats' }, 
-                          { v: 'TV Series', l: 'TV Series' }, 
-                          { v: 'Movie', l: 'Movies' }
-                        ]}
-                        colorTheme="accent"
-                        multi
-                      />
-                    )}
-
                     <CustomSelect 
                       label="Themes & Tags" 
                       value={filters.themes} 
                       onChange={(v) => handleChange('themes', v)} 
-                      options={activeThemeList}
+                      options={generalThemes}
                       searchable
                       multi
                       colorTheme="red"
@@ -612,12 +893,9 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
                       multi
                     />
 
-                    <CustomSelect 
-                      label="Year" 
-                      value={filters.year} 
-                      onChange={(v) => handleChange('year', v)} 
-                      options={years}
-                      // Single select for year
+                    <YearFilter 
+                        value={filters.year}
+                        onChange={(v) => handleChange('year', v)}
                     />
 
                     <CustomSelect 
@@ -628,22 +906,6 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
                       searchable
                       multi
                     />
-
-                    {category === MediaType.ANIME && (
-                       <CustomSelect 
-                        label="Audio" 
-                        value={filters.audioType} 
-                        onChange={(v) => handleChange('audioType', v)} 
-                        options={[
-                          { v: 'All', l: 'All Audio' },
-                          { v: 'Sub', l: 'Subbed' },
-                          { v: 'Dub', l: 'Dubbed' },
-                          { v: 'Sub & Dub', l: 'Sub & Dub' },
-                        ]}
-                        colorTheme="accent"
-                        multi
-                      />
-                    )}
                     
                     {/* Reset Button if any filter is active */}
                     {activeFilterCount > 0 && (
@@ -659,10 +921,13 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, category, is
                                 animeFormat: [],
                                 themes: [],
                                 aspectRatio: [],
-                                contentDescriptors: []
+                                contentDescriptors: [],
+                                contentStyle: 'All'
                             }))}
-                            className="px-3 py-2 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium hover:bg-red-500/20 hover:text-red-300 transition-colors backdrop-blur-sm"
+                            className="px-3 py-2 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium hover:bg-red-500/20 hover:text-red-300 transition-colors backdrop-blur-sm relative group/reset"
                         >
+                            {/* Halo Glow for Reset Button - Constant */}
+                            <div className="absolute -inset-2 bg-red-500/30 rounded-full blur-md opacity-30 group-hover/reset:opacity-100 transition-opacity duration-300 z-[-1]"></div>
                             Reset
                         </button>
                     )}

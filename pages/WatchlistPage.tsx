@@ -12,7 +12,9 @@ const WatchlistPage: React.FC = () => {
       <div className="w-full bg-slate-950/50 backdrop-blur-3xl border-b border-white/[0.05] sticky top-0 z-40 p-4 shadow-glass">
           <div className="max-w-8xl mx-auto">
              <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                <div className="p-2 bg-accent/20 rounded-lg border border-accent/20 text-accent">
+                <div className="p-2 bg-accent/20 rounded-lg border border-accent/20 text-accent relative group/icon">
+                    {/* Header Icon Glow */}
+                    <div className="absolute -inset-1 bg-accent/30 rounded-lg blur-md opacity-60 z-[-1]"></div>
                     <Bookmark size={20} />
                 </div>
                 My Watchlist
@@ -29,7 +31,9 @@ const WatchlistPage: React.FC = () => {
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-32 text-slate-500">
-            <div className="bg-white/5 p-8 rounded-full mb-6 backdrop-blur-md border border-white/5">
+            <div className="bg-white/5 p-8 rounded-full mb-6 backdrop-blur-md border border-white/5 relative group/empty">
+                {/* Empty State Glow */}
+                <div className="absolute -inset-4 bg-white/5 rounded-full blur-xl opacity-0 group-hover/empty:opacity-100 transition-opacity duration-500 z-[-1]"></div>
                 <Bookmark size={48} className="text-slate-600" />
             </div>
             <p className="text-2xl font-medium text-slate-300">Your watchlist is empty</p>

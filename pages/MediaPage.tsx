@@ -3,7 +3,7 @@ import { FilterState, MediaItem, MediaType } from '../types';
 import { fetchMediaItems } from '../services/geminiService';
 import FilterBar from '../components/FilterBar';
 import MediaCard from '../components/MediaCard';
-import { AlertTriangle, RefreshCcw, Key, Clock } from 'lucide-react';
+import { AlertTriangle, RefreshCcw, Key, Clock, Eye, EyeOff } from 'lucide-react';
 import { useMediaContext } from '../context/MediaContext';
 
 interface MediaPageProps {
@@ -11,24 +11,12 @@ interface MediaPageProps {
 }
 
 const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
-  const { getCachedState, setCachedState } = useMediaContext();
-  const cached = getCachedState(category);
-
-  // Initialize state from cache if available
-  const [items, setItems] = useState<MediaItem[]>(cached?.items || []);
-  const [loading, setLoading] = useState(!cached); // Only load if no cache
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(cached?.page || 1);
-  const [hasMore, setHasMore] = useState(cached?.hasMore ?? true);
+  const { getCachedState, setCachedState, getGlobalFilters, setGlobalFilters, isImmersiveMode, toggleImmersiveMode } = useMediaContext();
   
-  const observerTarget = useRef<HTMLDivElement>(null);
-  const isMounted = useRef(true);
+  // 1. Determine Initial Filters
+  const globalFilters = getGlobalFilters();
   
-  // Track if we should skip the initial fetch effect because we restored data
-  const skipInitialFetch = useRef(!!cached);
-
-  const [filters, setFilters] = useState<FilterState>(cached?.filters || {
+  const defaultFilters: FilterState = {
     searchQuery: '',
     genre: [], 
     year: 'All',
@@ -40,20 +28,47 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
     themes: [],
     aspectRatio: [],
     contentDescriptors: [],
+    contentStyle: 'All', // Default to show everything
     sortBy: 'trending',
-  });
+  };
+
+  const [filters, setFilters] = useState<FilterState>(globalFilters || defaultFilters);
+
+  // 2. Determine Cached Data Validity
+  const cached = getCachedState(category);
+  const canReuseCache = cached && JSON.stringify(cached.filters) === JSON.stringify(filters);
+
+  // Initialize state based on cache validity
+  const [items, setItems] = useState<MediaItem[]>(canReuseCache ? cached.items : []);
+  const [loading, setLoading] = useState(!canReuseCache); 
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(canReuseCache ? cached.page : 1);
+  const [hasMore, setHasMore] = useState(canReuseCache ? cached.hasMore : true);
+  
+  const observerTarget = useRef<HTMLDivElement>(null);
+  const isMounted = useRef(true);
+  
+  const skipInitialFetch = useRef(canReuseCache);
 
   // Restore Scroll Position synchronously before paint
   useLayoutEffect(() => {
-    if (cached?.scrollY) {
+    if (canReuseCache && cached.scrollY) {
       window.scrollTo(0, cached.scrollY);
+    } else {
+      window.scrollTo(0, 0);
     }
-  }, []); // Run once on mount
+  }, [category, canReuseCache, cached]); 
 
   useEffect(() => {
       isMounted.current = true;
       return () => { isMounted.current = false; };
   }, []);
+
+  // Update Global Filters whenever local filters change
+  useEffect(() => {
+    setGlobalFilters(filters);
+  }, [filters, setGlobalFilters]);
 
   // Save state on unmount
   useEffect(() => {
@@ -68,9 +83,8 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
     };
   }, [items, filters, page, hasMore, category, setCachedState]);
 
-  // Effect for Filter Changes (Reset)
+  // Effect for Filter Changes (Reset & Refetch)
   useEffect(() => {
-    // If we just restored from cache, skip this effect to prevent wiping data
     if (skipInitialFetch.current) {
         skipInitialFetch.current = false;
         return;
@@ -115,20 +129,17 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
 
   const loadInitialData = async () => {
     if (isMounted.current) {
-        setLoading(true); // Explicitly set loading to show skeletons immediately on retry
+        setLoading(true);
         setError(null);
     }
 
-    // UX DELAY: Ensure the loading state is visible for at least 800ms so the user knows the button clicked
     await new Promise(resolve => setTimeout(resolve, 800));
 
-    // Safety timeout - Increased to 120s to allow for Rate Limit Backoff (60s+)
     const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error("Request timed out")), 120000)
     );
 
     try {
-      // Race between the fetch and the timeout
       const data = await Promise.race([
           fetchMediaItems(category, filters, 1),
           timeoutPromise
@@ -143,21 +154,16 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
     } catch (err: any) {
       console.error(err);
       if (isMounted.current) {
-        // Clean up error message if it's a JSON string (common with 429/Google errors)
         let errMsg = err.message || "Failed to fetch media.";
         try {
-            // Check if error is a JSON string
             if (errMsg.trim().startsWith('{')) {
                 const parsed = JSON.parse(errMsg);
                 if (parsed.error && parsed.error.message) {
                     errMsg = parsed.error.message;
                 }
             }
-        } catch (e) {
-            // Use original message if parsing fails
-        }
+        } catch (e) {}
 
-        // User-friendly 429 message
         if (errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("RESOURCE_EXHAUSTED")) {
             errMsg = "Usage limit exceeded. The app is pausing to reset quota. Please wait ~60 seconds and click Try Again.";
         }
@@ -212,16 +218,46 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
   const isRateLimitError = error?.includes("Usage limit") || error?.includes("429") || error?.includes("RESOURCE_EXHAUSTED");
 
   return (
-    <div className="min-h-screen pl-0 md:pl-20 lg:pl-64 transition-all duration-300">
-      <FilterBar filters={filters} setFilters={setFilters} category={category} isLoading={loading} />
+    <div className="min-h-screen pl-0 md:pl-20 lg:pl-64 transition-all duration-300 relative">
       
-      <div className="p-6 max-w-8xl mx-auto">
-        <h2 className="text-2xl font-bold mb-6 text-white pl-2 flex items-center gap-3">
-          <span className="w-1.5 h-8 bg-primary rounded-full shadow-[0_0_10px_rgba(59,130,246,0.6)]"></span>
-          {filters.searchQuery 
-            ? `Results for "${filters.searchQuery}"` 
-            : `${filters.sortBy === 'trending' ? 'Trending' : filters.sortBy.replace('_', ' ')} ${category === 'All' ? 'Media' : category}s`}
-        </h2>
+      {/* Immersive Mode Toggle (Floating Action Button) */}
+      <button 
+        onClick={toggleImmersiveMode}
+        className={`
+           fixed bottom-6 right-6 z-50 p-3.5 rounded-full shadow-[0_0_20px_rgba(0,0,0,0.5)] border border-white/10 backdrop-blur-xl transition-all duration-300 hover:scale-105 active:scale-95 group/immersive
+           ${isImmersiveMode ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-primary text-white hover:bg-blue-600 border-primary/50'}
+        `}
+        title={isImmersiveMode ? "Show Interface" : "Immersive Mode (Hide UI)"}
+      >
+        {/* Halo Glow for Immersive Button */}
+        <div className="absolute -inset-2 bg-primary/40 rounded-full blur-xl opacity-40 group-hover/immersive:opacity-100 transition-opacity duration-300 z-[-1]"></div>
+
+        {isImmersiveMode ? <Eye size={22} /> : <EyeOff size={22} />}
+        
+        {/* Tooltip */}
+        <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap opacity-0 group-hover/immersive:opacity-100 transition-opacity pointer-events-none border border-white/10">
+            {isImmersiveMode ? "Show UI" : "Hide UI"}
+        </span>
+      </button>
+
+      {/* Filter Bar Container - Slides out in Immersive Mode */}
+      <div className={`
+        z-40 transition-all duration-500 ease-in-out
+        ${isImmersiveMode ? '-translate-y-full opacity-0 pointer-events-none fixed top-0 w-full' : 'sticky top-0 translate-y-0 opacity-100'}
+      `}>
+          <FilterBar filters={filters} setFilters={setFilters} category={category} isLoading={loading} />
+      </div>
+      
+      <div className={`p-6 max-w-8xl mx-auto transition-all duration-500 ${isImmersiveMode ? 'pt-8' : ''}`}>
+        {/* Page Title - Fades out in Immersive Mode */}
+        <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isImmersiveMode ? 'max-h-0 opacity-0 mb-0' : 'max-h-20 opacity-100 mb-6'}`}>
+            <h2 className="text-2xl font-bold text-white pl-2 flex items-center gap-3">
+            <span className="w-1.5 h-8 bg-primary rounded-full shadow-[0_0_10px_rgba(59,130,246,0.6)]"></span>
+            {filters.searchQuery 
+                ? `Results for "${filters.searchQuery}"` 
+                : `${filters.sortBy === 'trending' ? 'Trending' : filters.sortBy.replace('_', ' ')} ${category === 'All' ? 'Media' : category}s`}
+            </h2>
+        </div>
 
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
@@ -251,8 +287,10 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
                     </div>
                     <button 
                         onClick={loadInitialData}
-                        className="w-full py-3 bg-primary hover:bg-blue-600 text-white rounded-xl font-bold transition-all shadow-lg active:scale-95"
+                        className="w-full py-3 bg-primary hover:bg-blue-600 text-white rounded-xl font-bold transition-all shadow-lg active:scale-95 relative group/retry"
                     >
+                         {/* Halo Glow */}
+                        <div className="absolute -inset-1 bg-primary/40 rounded-xl blur-lg opacity-40 group-hover/retry:opacity-100 transition-opacity duration-300 z-[-1]"></div>
                         I've Added the Key, Try Again
                     </button>
                 </div>
@@ -271,8 +309,10 @@ const MediaPage: React.FC<MediaPageProps> = ({ category }) => {
                     </p>
                     <button 
                         onClick={loadInitialData}
-                        className="flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition-colors shadow-lg active:scale-95 transform duration-150"
+                        className="flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition-colors shadow-lg active:scale-95 transform duration-150 relative group/retry"
                     >
+                        {/* Halo Glow */}
+                        <div className="absolute -inset-1 bg-primary/40 rounded-lg blur-lg opacity-40 group-hover/retry:opacity-100 transition-opacity duration-300 z-[-1]"></div>
                         <RefreshCcw size={18} /> Try Again
                     </button>
                 </>
