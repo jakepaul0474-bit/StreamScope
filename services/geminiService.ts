@@ -281,7 +281,9 @@ export const fetchSeasonEpisodes = async (title: string, seasonNumber: number): 
         Return as a JSON Array of objects with properties: episodeNumber, title, overview, airDate, stillUrl.`,
       config: { tools: [{ googleSearch: {} }] }
     });
-    let text = response.text.trim();
+    let text = response.text ? response.text.trim() : "";
+    if (!text) return [];
+    
     if (text.startsWith('```')) text = text.replace(/^```(json)?\n?/, '').replace(/```$/, '');
     const s = text.indexOf('['); const e = text.lastIndexOf(']');
     if (s === -1) return [];
@@ -296,7 +298,8 @@ export const fetchTrailerUrl = async (title: string, type: string): Promise<stri
       contents: `YouTube URL for official trailer of "${title}" (${type}).`,
       config: { tools: [{ googleSearch: {} }] }
     });
-    const match = response.text.match(/https?:\/\/(www\.)?(youtube\.com|youtu\.be)\/[^\s]+/);
+    const text = response.text || "";
+    const match = text.match(/https?:\/\/(www\.)?(youtube\.com|youtu\.be)\/[^\s]+/);
     return match ? match[0] : null;
   } catch (e) { return null; }
 };
@@ -308,8 +311,11 @@ export const generateMediaPoster = async (title: string, type: string, year: num
         contents: { parts: [{ text: `High quality cinematic poster for "${title}" (${year}) ${type}. No text.` }] },
         config: { imageConfig: { aspectRatio: '3:4' } }
     });
-    const part = response.candidates?.[0]?.content?.parts.find(p => p.inlineData);
-    return part ? `data:${part.inlineData.mimeType};base64,${part.inlineData.data}` : null;
+    const part = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+    if (part && part.inlineData) {
+        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+    }
+    return null;
   } catch (e) { return null; }
 };
 
@@ -320,7 +326,9 @@ export const fetchRecommendations = async (title: string, type: string): Promise
       contents: `Use Google Search to find 4 similar real media titles to "${title}". Return as a JSON Array of objects. Each object MUST have: title, year, imdbRating, type (Movie, TV Show, or Anime), maturityRating, and country.`,
       config: { tools: [{ googleSearch: {} }] }
     });
-    let text = response.text.trim();
+    let text = response.text ? response.text.trim() : "";
+    if (!text) return [];
+
     if (text.startsWith('```')) text = text.replace(/^```(json)?\n?/, '').replace(/```$/, '');
     const s = text.indexOf('['); const e = text.lastIndexOf(']');
     if (s === -1) return [];
