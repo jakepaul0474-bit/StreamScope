@@ -640,7 +640,7 @@ const DetailsView: React.FC = () => {
                                 <div className="text-[9px] font-mono text-cp-yellow">LN: {item.description?.length || 0}</div>
                             </div>
                             <p className="text-cyan-400 text-base leading-7 font-rajdhani font-medium tracking-wide opacity-90 shadow-black drop-shadow-md">
-                                {item.description ? <><span className="mr-2 opacity-70" style={{ color: themeColor }}>>></span>{item.description}<span className="animate-pulse ml-1" style={{ color: themeColor }}>_</span></> : '>> ENCRYPTED_DATA // ACCESS_DENIED'}
+                                {item.description ? <><span className="mr-2 opacity-70" style={{ color: themeColor }}>{'>>'}</span>{item.description}<span className="animate-pulse ml-1" style={{ color: themeColor }}>_</span></> : '>> ENCRYPTED_DATA // ACCESS_DENIED'}
                             </p>
                             <div className="flex flex-wrap gap-2 mt-5">
                                 {item.genres?.map(g => (
