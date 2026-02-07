@@ -23,9 +23,11 @@ const getCacheKey = (prefix: string, params: any) => {
   return `${prefix}-${deterministicStringify(params)}`;
 };
 
-const generateWithRetry = async (params: any, retries = 2, initialDelay = 1000) => {
+const generateWithRetry = async (params: any, defaultRetries = 3, initialDelay = 2000) => {
   let currentDelay = initialDelay;
-  for (let i = 0; i < retries; i++) {
+  let maxRetries = defaultRetries;
+
+  for (let i = 0; i < maxRetries; i++) {
     try {
       // Increased timeout to 120 seconds to handle complex queries
       const timeoutPromise = new Promise((_, reject) => 
@@ -37,10 +39,27 @@ const generateWithRetry = async (params: any, retries = 2, initialDelay = 1000) 
       ]);
       return result as any;
     } catch (error: any) {
-      if (i < retries - 1) {
-        console.warn(`Retrying request due to error. Attempt ${i + 1}`);
+      // Check for 429 or quota related errors
+      const isQuotaError = error.message?.includes('429') || 
+                           error.message?.includes('quota') || 
+                           error.status === 429 ||
+                           error.code === 429 ||
+                           (error.error && (error.error.code === 429 || error.error.status === 'RESOURCE_EXHAUSTED'));
+
+      if (isQuotaError) {
+          // If we hit a quota error, we extend the max retries significantly
+          // and ensure the delay is substantial.
+          maxRetries = Math.max(maxRetries, 6);
+          if (currentDelay < 5000) currentDelay = 5000;
+      }
+
+      if (i < maxRetries - 1) {
+        console.warn(`Retrying request due to error. Attempt ${i + 1}/${maxRetries}. IsQuota: ${isQuotaError}. Waiting ${currentDelay}ms`);
+        
         await new Promise(resolve => setTimeout(resolve, currentDelay));
-        currentDelay *= 2;
+        
+        // Exponential backoff, capped at 30 seconds
+        currentDelay = Math.min(currentDelay * 2, 30000);
         continue;
       }
       throw error;
@@ -60,21 +79,11 @@ const matchesFilters = (item: MediaItem, filters: FilterState, category: MediaTy
         if (!matchesAll) return false;
     }
 
-    // AND Logic for Content Descriptors (if data is available)
-    if (filters.contentDescriptors.length > 0 && !filters.contentDescriptors.includes('All')) {
-         const itemDescriptors = (item.contentDescriptors || []).map(d => d.toLowerCase());
-         if (itemDescriptors.length > 0) {
-             const matchesAll = filters.contentDescriptors.every(filterTag => {
-                 const fTag = filterTag.toLowerCase();
-                 // Bidirectional check to handle "Gore/Extreme Violence" vs "Gore"
-                 // If filter is "Naked/Nudity" and item has "Nudity" -> Match
-                 // If filter is "Gore" and item has "Extreme Gore" -> Match
-                 return itemDescriptors.some(iTag => fTag.includes(iTag) || iTag.includes(fTag));
-             });
-             if (!matchesAll) return false;
-         }
-    }
-
+    // RELAXED Logic for Content Descriptors
+    // We rely on the Prompt Generation to filter these. 
+    // Strict client-side filtering often fails because the AI doesn't always return the exact tags requested in metadata.
+    // We only filter if the user explicitly wants to EXCLUDE something, but here we are inclusive.
+    
     if (filters.minRating !== 'All') {
         const min = parseFloat(filters.minRating);
         const ratingValue = Number(item.imdbRating || 0);
@@ -123,7 +132,17 @@ export const fetchMediaItems = async (
   }
 
   if (filters.contentDescriptors.length > 0 && !filters.contentDescriptors.includes('All')) {
-      criteria.push(`Content MUST contain (ALL of): ${filters.contentDescriptors.join(' AND ')}`);
+      const descriptors = filters.contentDescriptors.map(d => {
+          if (d === 'Extreme Gore/Gruesome') return "Must be 'Splatter', 'Extreme Horror', 'Body Horror' or contain 'Graphic Violence' (e.g. Saw, Hostel, Terrifier, Human Centipede).";
+          if (d === 'Gore/Extreme Violence') return "Contains 'Bloody Violence', 'Gore', or 'Slasher' elements.";
+          return d;
+      });
+      criteria.push(`Content Criteria: ${descriptors.join(' AND ')}`);
+      
+      // Add exclusion logic
+      if (filters.contentDescriptors.includes('Gore/Extreme Violence') && !filters.contentDescriptors.includes('Extreme Gore/Gruesome')) {
+          criteria.push("Exclude movies that are explicitly 'Torture', 'Splatter' or extreme Body Horror.");
+      }
   }
 
   let sortInstruction = "Sort by: Relevance/Popularity";
@@ -132,16 +151,16 @@ export const fetchMediaItems = async (
   else if (filters.sortBy === 'trending') sortInstruction = "Sort by: Currently Trending/Viral";
 
   const prompt = `
-    GOAL: Use Google Search to find a REAL, ACCURATE list of ${count} ${baseType} that strictly matches these criteria:
+    GOAL: Use Google Search to find a REAL, ACCURATE list of ${count} ${baseType} that matches these criteria:
     ${criteria.map(c => `- ${c}`).join('\n')}
     
     ${sortInstruction}
     
     CRITICAL INSTRUCTIONS:
     1. ACCURACY: You MUST verify the exact Release Date (YYYY-MM-DD) and IMDb Rating (x.x). Do not guess.
-    2. FILTERING: Respect the 'AND' logic. If criteria says "Nudity AND Gore", only return items that contain BOTH.
-    3. METADATA: For each item, you MUST populate the 'contentDescriptors' array with the specific content tags present (e.g., "Nudity", "Gore", "Violence").
-    4. EXCLUSION: Do not include items that do not match the criteria.
+    2. CONTENT: For "Extreme Gore", include films known for disturbing content. For standard "Gore", stick to action/thriller violence.
+    3. METADATA: Populate 'contentDescriptors' with relevant tags (e.g., 'Splatter', 'Violence', 'Nudity').
+    4. EXCLUSION: Do not include items that clearly violate the criteria.
     
     OUTPUT FORMAT:
     Return a JSON Array of objects.
@@ -152,7 +171,7 @@ export const fetchMediaItems = async (
     - description: string
     - imdbRating: number
     - genres: array of strings
-    - contentDescriptors: array of strings (Important for filtering)
+    - contentDescriptors: array of strings
     - platforms: array of strings
     - type: string (Movie, TV Show, Anime)
     - maturityRating: string
@@ -165,7 +184,15 @@ export const fetchMediaItems = async (
     const response = await generateWithRetry({
       model: 'gemini-3-flash-preview',
       contents: prompt,
-      config: { tools: [{ googleSearch: {} }] },
+      config: { 
+          tools: [{ googleSearch: {} }],
+          safetySettings: [
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' }
+          ]
+      },
     });
 
     let text = response.text || "[]";
@@ -190,7 +217,8 @@ export const fetchMediaItems = async (
     requestCache.set(cacheKey, sanitized);
     return sanitized;
   } catch (error) {
-    return [];
+    console.error("Gemini API Error:", error);
+    throw error; // Propagate error to UI for handling
   }
 };
 
@@ -293,6 +321,7 @@ export const fetchSeasonEpisodes = async (title: string, seasonNumber: number): 
 
 export const fetchTrailerUrl = async (title: string, type: string): Promise<string | null> => {
   try {
+    // Standard generateContent without retry loop because 429 on this isn't critical
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `YouTube URL for official trailer of "${title}" (${type}).`,

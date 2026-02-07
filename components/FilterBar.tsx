@@ -8,7 +8,7 @@ import {
   RectangleVertical, Feather, Disc, MapPin, Radio, Clapperboard, Ghost, 
   Thermometer, Rocket, Brain, GraduationCap, Coffee, Video, Palette, EyeOff, Pill, 
   MessageSquareWarning, Mic, MessageCircle, ThumbsUp, Shield, ShieldCheck, Trophy, Bot, Wifi,
-  Globe2, Lock, Unlock, Clock
+  Globe2, Lock, Unlock, Clock, Biohazard
 } from 'lucide-react';
 import { FilterState, MediaType } from '../types';
 import { useNavigate } from 'react-router-dom';
@@ -154,6 +154,7 @@ const contentStyleOptions = [
 
 const contentDescriptorOptions = [
     { v: 'All', l: 'ANY CONTENT', icon: <LayoutGrid size={12} /> },
+    { v: 'Extreme Gore/Gruesome', l: 'EXTREME GORE', icon: <Biohazard size={12} /> },
     { v: 'Naked/Nudity', l: 'NUDITY', icon: <EyeOff size={12} /> },
     { v: 'Semi Nudity', l: 'SEMI NUDITY', icon: <EyeOff size={12} /> },
     { v: 'Sexual Content', l: 'SEXUAL', icon: <Heart size={12} /> },
