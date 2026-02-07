@@ -19,22 +19,15 @@ export interface Episode {
   overview: string;
   airDate: string;
   rating: number;
-  stillUrl?: string; // Image URL for the episode
+  stillUrl?: string;
 }
 
 export interface Season {
   seasonNumber: number;
   episodeCount: number;
   releaseDate: string;
-  title?: string; // e.g. "Swordsmith Village Arc"
-  episodes?: Episode[];
-}
-
-export interface NextEpisode {
-  airDate: string; // Full ISO date
-  episodeNumber?: number;
-  seasonNumber?: number;
   title?: string;
+  episodes?: Episode[];
 }
 
 export interface RatingsBreakdown {
@@ -45,52 +38,74 @@ export interface RatingsBreakdown {
 }
 
 export interface ContentRatingDetail {
-  category: string; // e.g., "Sex & Nudity", "Violence & Gore"
+  category: string;
   severity: 'None' | 'Mild' | 'Moderate' | 'Severe';
   description: string;
 }
 
 export interface MediaItem {
   id: string;
-  imdbId?: string;      // New: IMDb ID for external linking
+  imdbId?: string;
   title: string;
-  description?: string; // Made optional for list view optimization
-  posterUrl?: string;   // Made optional
-  backdropUrl?: string; // Made optional
-  trailerUrl?: string;  // New: YouTube trailer link
-  year: number; // Keep for sorting
-  releaseDate: string; // Full date YYYY-MM-DD
+  description?: string;
+  posterUrl?: string;
+  backdropUrl?: string;
+  trailerUrl?: string;
+  year: number;
+  releaseDate: string;
   imdbRating: number;
-  ratingsBreakdown?: RatingsBreakdown; // Specific scores for the chart
+  rottenTomatoesScore?: number;
+  metacriticScore?: number;
+  ratingsBreakdown?: RatingsBreakdown;
   maturityRating: string;
-  contentAdvisory?: string; // Made optional - kept for summary/fallback
-  contentRatingDetails?: ContentRatingDetail[]; // New: Detailed breakdown
+  contentAdvisory?: string;
+  contentRatingDetails?: ContentRatingDetail[];
   genres: string[];
-  cast?: string[];      // New: Array of actor names
-  platforms?: string[]; // Made optional
-  techSpecs?: string[]; // New: e.g. ["4K", "Dolby Atmos", "IMAX"]
-  country?: string;     // Made optional
-  originalLanguage?: string; // New: e.g. "en", "ja", "ko"
+  themes?: string[];
+  contentDescriptors?: string[];
+  cast?: string[];
+  platforms?: string[];
+  techSpecs?: string[];
+  country?: string;
+  originalLanguage?: string;
   type: MediaType;
-  subType?: 'Movie' | 'TV Series' | 'OVA' | 'Special'; // Specific for Anime/Shows distinction
-  seasons?: Season[]; // For Shows and Anime Series
-  nextEpisode?: NextEpisode; // For ongoing Anime/Shows
+  subType?: 'Movie' | 'TV Series' | 'OVA' | 'Special';
+  seasons?: Season[];
   audioType?: AudioType;
   isTrending?: boolean;
 }
 
 export interface FilterState {
   searchQuery: string;
-  genre: string[];         // Changed to array
-  year: string;            // Keep single for now (range/threshold)
-  country: string[];       // Changed to array
-  maturityRating: string[];// Changed to array
-  minRating: string;       // Keep single (threshold)
-  audioType: string[];     // Changed to array
-  animeFormat: string[];   // Changed to array
-  themes: string[];        // New: Specific tags like "Gore", "Isekai", "Cyberpunk"
-  aspectRatio: string[];   // New: IMAX, Widescreen, etc.
-  contentDescriptors: string[]; // New: Nudity, Foul Language, etc.
-  contentStyle: 'All' | 'Live Action' | 'Anime'; // New: Toggle for Real Life vs Anime
+  genre: string[];
+  year: string[];
+  country: string[];
+  maturityRating: string[];
+  minRating: string;
+  audioType: string[];
+  animeFormat: string[];
+  themes: string[];
+  aspectRatio: string[];
+  contentDescriptors: string[];
+  streamingPlatforms: string[];
+  contentStyle: 'All' | 'Live Action' | 'Anime';
   sortBy: 'trending' | 'trending_week' | 'popular' | 'in_theaters' | 'newest' | 'rating';
+}
+
+export interface AppSettings {
+  theme: 'dark' | 'light';
+  // enableAIImages removed
+  
+  // Interface Visuals
+  haloIntensity: number;
+  glassTransparency: number;
+  reflectionOpacity: number;
+  blurStrength: number;
+  
+  // Advanced Visuals
+  backgroundImage: string;
+  scanlineIntensity: number;
+  glitchIntensity: number;
+  vignetteStrength: number;
+  distortionStrength: number;
 }

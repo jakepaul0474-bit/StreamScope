@@ -1,803 +1,819 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Star, Calendar, Globe, MonitorPlay, ShieldAlert, Mic, Info, ImageOff, Clock, ChevronDown, PlayCircle, Heart, Check, Settings2, X, Activity, Award, Users, Languages } from 'lucide-react';
-import { MediaItem, MediaType, Episode, ContentRatingDetail } from '../types';
+import { ArrowLeft, Star, Calendar, ShieldAlert, ImageOff, Heart, X, Users, Globe, Film, PlayCircle, MonitorPlay, Zap, Volume2, Layers, ChevronDown, ShieldCheck, Clapperboard, Monitor, ExternalLink, Speaker, Play, AlertTriangle, Hash, Cpu, Radio, HardDrive, Share2, Settings, Scan, Activity, Binary, Terminal, Database, Fingerprint } from 'lucide-react';
+import { MediaItem, MediaType, Episode } from '../types';
 import { fetchMediaDetails, fetchRecommendations, fetchSeasonEpisodes, fetchTrailerUrl } from '../services/geminiService';
 import MediaCard from './MediaCard';
 import { useWatchlist } from '../hooks/useWatchlist';
+import { useMediaContext } from '../context/MediaContext';
 
-// Helper component for Platform Item with independent image state and fallback
-const PlatformItem: React.FC<{ platform: string; title: string }> = ({ platform, title }) => {
+// Cyberpunk Aesthetic Configuration
+const CP = {
+    clips: {
+        // Chamfered corners for panels
+        panel: { clipPath: "polygon(0 0, 100% 0, 100% 85%, 95% 100%, 0 100%)" },
+        panelRev: { clipPath: "polygon(5% 0, 100% 0, 100% 100%, 0 100%, 0 15%)" },
+        // Angled buttons
+        buttonLeft: { clipPath: "polygon(0 0, 100% 0, 95% 100%, 0 100%)" },
+        buttonRight: { clipPath: "polygon(5% 0, 100% 0, 100% 100%, 0 100%)" },
+        tag: { clipPath: "polygon(0 0, 100% 0, 90% 100%, 0 100%)" }
+    }
+};
+
+// Animated Data Stream Component
+const DataStream: React.FC<{ className?: string; color?: string }> = ({ className, color }) => {
+    const [data, setData] = useState('');
+    useEffect(() => {
+        const chars = '01AFX9';
+        const interval = setInterval(() => {
+            setData(Array(8).fill(0).map(() => chars[Math.floor(Math.random() * chars.length)]).join(''));
+        }, 120);
+        return () => clearInterval(interval);
+    }, []);
+    return <div className={`font-mono text-[10px] tracking-widest opacity-60 ${className}`} style={{ color: color }}>{data}</div>;
+};
+
+// Cybernetic Arm Interface Component
+const CyberArmInterface: React.FC<{ color: string }> = ({ color }) => {
+    return (
+        <div className="relative h-24 w-full border border-white/10 mb-6 bg-black/40 overflow-hidden flex items-center justify-between px-6 select-none transition-all hover:bg-black/60"
+             style={{
+                 borderColor: `${color}30`,
+                 clipPath: "polygon(0 0, 100% 0, 100% 75%, 98% 100%, 0 100%)",
+                 boxShadow: `inset 0 0 20px ${color}05`
+             }}>
+             {/* Background Grid */}
+             <div className="absolute inset-0 opacity-5 pointer-events-none"
+                  style={{ backgroundImage: `linear-gradient(${color} 1px, transparent 1px), linear-gradient(90deg, ${color} 1px, transparent 1px)`, backgroundSize: '30px 30px' }}>
+             </div>
+
+             {/* Left: Schematic Icon */}
+             <div className="flex items-center gap-4 relative z-10">
+                 <div className="relative w-12 h-12 border border-white/10 rounded-full flex items-center justify-center group">
+                     <div className="absolute inset-0 border-t border-l border-transparent animate-[spin_3s_linear_infinite]" style={{ borderTopColor: color, borderLeftColor: color, borderRadius: '50%' }}></div>
+                     <div className="absolute inset-2 border-b border-r border-transparent animate-[spin_2s_linear_infinite_reverse]" style={{ borderBottomColor: color, borderRightColor: color, borderRadius: '50%', opacity: 0.5 }}></div>
+                     <Activity size={20} style={{ color: color }} className="animate-pulse" />
+                 </div>
+                 <div className="flex flex-col gap-1">
+                     <span className="text-[10px] font-orbitron font-bold text-cp-red tracking-widest">NEURAL_LINK</span>
+                     <div className="flex gap-0.5">
+                         {[...Array(8)].map((_, i) => (
+                             <div key={i} className="w-1 h-1.5 bg-slate-800">
+                                 <div className="w-full h-full animate-[pulse_1s_infinite]" style={{ backgroundColor: color, animationDelay: `${i * 0.1}s`, opacity: Math.random() > 0.5 ? 1 : 0.3 }}></div>
+                             </div>
+                         ))}
+                     </div>
+                 </div>
+             </div>
+
+             {/* Middle: Abstract Arm Lines */}
+             <div className="hidden md:flex flex-1 items-center justify-center gap-2 opacity-30 mx-8">
+                  <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-white to-transparent opacity-20"></div>
+                  <div className="text-[8px] font-mono whitespace-nowrap text-cp-yellow">/// SYNAPTIC_TRANSFER ///</div>
+                  <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-white to-transparent opacity-20"></div>
+             </div>
+
+             {/* Right: Data Readouts */}
+             <div className="text-right flex flex-col items-end relative z-10">
+                 <div className="text-[9px] font-mono text-cp-yellow mb-1 flex items-center gap-2">
+                     STATUS: <span className="animate-pulse text-cp-red">ONLINE</span>
+                 </div>
+                 <div className="flex items-center gap-2">
+                     <span className="text-[9px] font-mono text-cp-yellow">CPU</span>
+                     <div className="w-16 h-1 bg-slate-800 relative overflow-hidden">
+                         <div className="absolute top-0 left-0 h-full animate-[width_2s_ease-in-out_infinite]" style={{ backgroundColor: color, width: '45%' }}></div>
+                     </div>
+                 </div>
+                 <div className="flex items-center gap-2 mt-1">
+                     <span className="text-[9px] font-mono text-cp-yellow">MEM</span>
+                     <div className="w-16 h-1 bg-slate-800 relative overflow-hidden">
+                         <div className="absolute top-0 left-0 h-full animate-[width_3s_ease-in-out_infinite]" style={{ backgroundColor: color, width: '72%' }}></div>
+                     </div>
+                 </div>
+                 <DataStream className="text-[8px] mt-1 opacity-50" color={color} />
+             </div>
+        </div>
+    );
+};
+
+const PlatformLogo: React.FC<{ platform: string; className?: string; color: string }> = ({ platform, className = "w-6 h-6", color }) => {
+    const { visualStyles } = useMediaContext();
     const [imgSrc, setImgSrc] = useState<string>('');
-    const [error, setError] = useState(false);
-
-    const getPlatformDomain = (platformName: string) => {
-        const lower = platformName.toLowerCase().trim();
-        
-        if (lower.includes('netflix')) return 'netflix.com';
-        if (lower.includes('prime') || lower.includes('amazon')) return 'primevideo.com';
-        if (lower.includes('disney')) return 'disneyplus.com';
-        if (lower.includes('hulu')) return 'hulu.com';
-        if (lower.includes('hbo') || lower.includes('max')) return 'max.com';
-        if (lower.includes('apple') && lower.includes('tv')) return 'tv.apple.com';
-        if (lower.includes('peacock')) return 'peacocktv.com';
-        if (lower.includes('paramount')) return 'paramountplus.com';
-        if (lower.includes('youtube')) return 'youtube.com';
-        if (lower.includes('crunchyroll')) return 'crunchyroll.com';
-        if (lower.includes('zee5')) return 'zee5.com';
-        if (lower.includes('hotstar')) return 'hotstar.com';
-        if (lower.includes('jio')) return 'jiocinema.com';
-        if (lower.includes('sony')) return 'sonyliv.com';
-        if (lower.includes('bilibili')) return 'bilibili.tv';
-        if (lower.includes('voot')) return 'voot.com';
-        if (lower.includes('discovery')) return 'discoveryplus.com';
-        if (lower.includes('tubi')) return 'tubitv.com';
-        if (lower.includes('pluto')) return 'pluto.tv';
-        if (lower.includes('vudu')) return 'vudu.com';
-        if (lower.includes('google')) return 'play.google.com';
-        if (lower.includes('mubi')) return 'mubi.com';
-        if (lower.includes('starz')) return 'starz.com';
-        if (lower.includes('showtime')) return 'showtime.com';
-        if (lower.includes('britbox')) return 'britbox.com';
-        if (lower.includes('acorn')) return 'acorn.tv';
-        if (lower.includes('funimation')) return 'funimation.com';
-        if (lower.includes('hidive')) return 'hidive.com';
-        if (lower.includes('viki')) return 'viki.com';
-        if (lower.includes('iqiyi')) return 'iq.com';
-        if (lower.includes('lionsgate')) return 'lionsgateplay.com';
-        if (lower.includes('sun nxt')) return 'sunnxt.com';
-        if (lower.includes('aha')) return 'aha.video';
-        if (lower.includes('eros')) return 'erosnow.com';
-        if (lower.includes('alt')) return 'altbalaji.com';
-        if (lower.includes('mx')) return 'mxplayer.in';
-
-        return null;
-    };
-
-    const domain = getPlatformDomain(platform);
+    const [hasError, setHasError] = useState(false);
 
     useEffect(() => {
+        const p = platform.toLowerCase().replace(/[^a-z0-9]/g, '');
+        let domain = '';
+        
+        if (p.includes('netflix')) domain = 'netflix.com';
+        else if (p.includes('prime') || p.includes('amazon')) domain = 'primevideo.com';
+        else if (p.includes('disney')) domain = 'disneyplus.com';
+        else if (p.includes('hulu')) domain = 'hulu.com';
+        else if (p.includes('hbo') || p.includes('max')) domain = 'max.com';
+        else if (p.includes('apple') || p.includes('itunes')) domain = 'apple.com';
+        else if (p.includes('peacock')) domain = 'peacocktv.com';
+        else if (p.includes('paramount')) domain = 'paramountplus.com';
+        else if (p.includes('crunchyroll')) domain = 'crunchyroll.com';
+        else if (p.includes('youtube')) domain = 'youtube.com';
+        else if (p.includes('google')) domain = 'play.google.com';
+        
         if (domain) {
-             setImgSrc(`https://logo.clearbit.com/${domain}?size=60`);
-             setError(false);
+            setImgSrc(`https://logo.clearbit.com/${domain}`);
+            setHasError(false);
         } else {
-             setError(true);
+            setHasError(true);
         }
-    }, [domain, platform]);
+    }, [platform]);
 
     const handleError = () => {
         if (imgSrc.includes('clearbit')) {
-            // Fallback to Google
-            setImgSrc(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`);
+             const domain = imgSrc.split('/').pop();
+             setImgSrc(`https://unavatar.io/${domain}?fallback=false`);
         } else {
-            setError(true);
+            setHasError(true);
         }
     };
 
-    return (
-        <a 
-            href={`https://www.google.com/search?q=watch ${title} on ${platform}`} 
-            target="_blank" 
-            rel="noreferrer"
-            className="group relative block w-8 h-8 md:w-10 md:h-10 bg-white/10 rounded-lg md:rounded-xl overflow-visible border border-white/10 hover:border-white/30 hover:scale-105 transition-all shadow-md z-10"
+    if (hasError) return (
+        <div 
+            className={`flex items-center justify-center border transition-transform duration-300 hover:scale-110 ${className}`} 
+            style={{ ...visualStyles.panel, borderColor: `${color}40` }}
             title={platform}
         >
-            {/* Platform Icon Glow */}
-            <div className="absolute -inset-2 bg-white/20 rounded-xl blur-md opacity-30 group-hover:opacity-100 transition-opacity duration-300 z-[-1]"></div>
-
-            <div className="w-full h-full rounded-lg md:rounded-xl overflow-hidden relative z-10">
-                {!error && domain ? (
-                    <img 
-                        src={imgSrc} 
-                        alt={platform} 
-                        className="w-full h-full object-cover" 
-                        onError={handleError}
-                        referrerPolicy="no-referrer"
-                        loading="lazy"
-                    />
-                ) : null}
-                
-                {/* Fallback Text */}
-                <div className={`w-full h-full flex items-center justify-center bg-slate-800 text-[10px] font-bold text-slate-300 ${!error && domain ? 'hidden' : ''}`}>
-                    {platform.slice(0,1).toUpperCase()}
-                </div>
-            </div>
-        </a>
+            <span className="text-[6px] font-orbitron uppercase tracking-tighter leading-none text-center" style={{ color }}>{platform.substring(0, 2)}</span>
+        </div>
     );
-};
-
-// Helper Component for Individual Content Rating Rows
-const ContentRatingItem: React.FC<{ detail: ContentRatingDetail }> = ({ detail }) => {
-    const [isOpen, setIsOpen] = useState(false);
-
-    const getSeverityColor = (severity: string) => {
-      const s = severity?.toLowerCase() || '';
-      if (s.includes('severe') || s.includes('high')) return 'bg-red-500/20 text-red-400 border-red-500/30';
-      if (s.includes('moderate') || s.includes('medium')) return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
-      if (s.includes('mild') || s.includes('low')) return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
-      return 'bg-green-500/20 text-green-400 border-green-500/30';
-    };
 
     return (
-        <div className="bg-white/5 rounded-xl border border-white/5 overflow-visible transition-all duration-200 relative group">
-            {/* Content Item Glow */}
-            <div className="absolute -inset-1 bg-white/5 rounded-xl blur-md opacity-20 group-hover:opacity-100 transition-opacity duration-300 z-[-1]"></div>
-
-            <button 
-                onClick={() => setIsOpen(!isOpen)}
-                className="w-full flex items-center justify-between p-3.5 text-left focus:outline-none relative z-10"
-            >
-                <span className="font-semibold text-slate-200 text-sm group-hover:text-white transition-colors">{detail.category}</span>
-                <div className="flex items-center gap-3">
-                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded border uppercase tracking-wider min-w-[70px] text-center ${getSeverityColor(detail.severity)}`}>
-                        {detail.severity}
-                    </span>
-                    <ChevronDown size={16} className={`text-slate-500 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
-                </div>
-            </button>
-            <div className={`transition-all duration-300 ease-in-out bg-black/20 rounded-b-xl ${isOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
-                <div className="px-4 pb-4 pt-2">
-                    <div className="h-px w-full bg-white/5 mb-3"></div>
-                    <p className="text-xs text-slate-400 leading-relaxed font-light">
-                        {detail.description || "No specific scenes described for this category."}
-                    </p>
-                </div>
-            </div>
+        <div 
+            className={`p-[2px] border border-white/10 hover:border-opacity-100 transition-all duration-300 hover:scale-110 hover:shadow-[0_0_10px_var(--glow-color)] ${className}`}
+            style={{ ...visualStyles.panel, '--hover-color': color, '--glow-color': `${color}40` } as React.CSSProperties}
+        >
+             <style>{`.hover\\:border-opacity-100:hover { border-color: ${color} !important; }`}</style>
+             <img src={imgSrc} alt={platform} className="w-full h-full object-contain grayscale hover:grayscale-0 transition-all" onError={handleError} />
         </div>
     );
 };
 
-export const DetailsView: React.FC = () => {
-  const { type, title } = useParams<{ type: string; title: string }>();
-  const navigate = useNavigate();
-  const [item, setItem] = useState<MediaItem | null>(null);
-  const [recommendations, setRecommendations] = useState<MediaItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  const { isInWatchlist, toggleWatchlist } = useWatchlist();
+const EpisodeImage: React.FC<{ ep: Episode; title: string; season: number; color: string }> = ({ ep, title, season, color }) => {
+    const { visualStyles } = useMediaContext();
+    const [src, setSrc] = useState(ep.stillUrl || `https://tse2.mm.bing.net/th?q=${encodeURIComponent(title + " S" + season + " E" + ep.episodeNumber + " scene")}&w=400&h=225&c=7&rs=1&p=0`);
+    const [error, setError] = useState(false);
+    return (
+        <div 
+            className="w-24 md:w-32 aspect-video relative overflow-hidden shrink-0 border-l-2 transition-all duration-300 group-hover:border-opacity-100 group-hover:shadow-[0_0_15px_var(--glow-color)]" 
+            style={{ ...visualStyles.panel, borderColor: `${color}50`, '--glow-color': `${color}20` } as React.CSSProperties}
+        >
+             <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.5)_1px,transparent_1px)] bg-[length:100%_4px] pointer-events-none z-10 opacity-30"></div>
+            {error && !src ? <ImageOff size={16} className="opacity-10" /> : <img src={src} className="w-full h-full object-cover transition-all duration-500 group-hover:scale-110" alt={ep.title} onError={() => setError(true)} />}
+        </div>
+    );
+};
 
-  const [backdropSrc, setBackdropSrc] = useState('');
-  const [posterSrc, setPosterSrc] = useState('');
-  const [backdropError, setBackdropError] = useState(false);
-  const [posterError, setPosterError] = useState(false);
-  
-  const [isBackdropBing, setIsBackdropBing] = useState(false);
-  const [isPosterBing, setIsPosterBing] = useState(false);
+const DetailsView: React.FC = () => {
+    const { type, title } = useParams<{ type: string; title: string }>();
+    const navigate = useNavigate();
+    const { isInWatchlist, toggleWatchlist } = useWatchlist();
+    const { visualStyles, settings } = useMediaContext();
+    const [item, setItem] = useState<MediaItem | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [recommendations, setRecommendations] = useState<MediaItem[]>([]);
+    const [activeSeason, setActiveSeason] = useState<number>(1);
+    const [episodes, setEpisodes] = useState<Episode[]>([]);
+    const [loadingEpisodes, setLoadingEpisodes] = useState(false);
+    const [trailerUrl, setTrailerUrl] = useState<string | null>(null);
+    const [showTrailer, setShowTrailer] = useState(false);
+    const [imgSrc, setImgSrc] = useState<string>('');
+    const [isEpisodesExpanded, setIsEpisodesExpanded] = useState(true);
 
-  const [expandedSeason, setExpandedSeason] = useState<number | null>(null);
-  const [episodesCache, setEpisodesCache] = useState<Record<number, Episode[]>>({});
-  const [loadingSeason, setLoadingSeason] = useState<number | null>(null);
-  
-  const [showTrailerModal, setShowTrailerModal] = useState(false);
-  const [trailerUrl, setTrailerUrl] = useState<string | null>(null);
-  const [loadingTrailer, setLoadingTrailer] = useState(false);
-  
-  const [isRatingExpanded, setIsRatingExpanded] = useState(false);
+    useEffect(() => {
+        const load = async () => {
+            if (!title || !type) return;
+            setLoading(true);
+            try {
+                const details = await fetchMediaDetails(decodeURIComponent(title), type);
+                setItem(details);
+                if (details) {
+                    fetchRecommendations(details.title, details.type).then(setRecommendations);
+                    if (details.type !== MediaType.MOVIE && details.seasons?.length) {
+                        setActiveSeason(details.seasons[0].seasonNumber);
+                        loadEpisodes(details.title, details.seasons[0].seasonNumber);
+                    }
+                }
+            } catch (e) { console.error(e); } finally { setLoading(false); }
+        };
+        load();
+    }, [title, type]);
 
-  // Updated to support 'cast' and 'episode' types
-  const getBingUrl = (query: string, type: 'poster' | 'backdrop' | 'cast' | 'episode') => {
-     let aspect = '';
-     let suffix = '';
-     
-     if (type === 'poster') {
-         aspect = '&w=400&h=600';
-         suffix = ' poster';
-     } else if (type === 'backdrop') {
-         aspect = '&w=1280&h=720';
-         suffix = ' backdrop';
-     } else if (type === 'cast') {
-         aspect = '&w=200&h=200&c=7&rs=1'; // Face focus crop
-         suffix = ' face';
-     } else if (type === 'episode') {
-         aspect = '&w=320&h=180&c=7&rs=1'; 
-         suffix = ' episode still';
-     }
-
-     return `https://tse2.mm.bing.net/th?q=${encodeURIComponent(query + suffix)}&c=7&rs=1${aspect}&p=0`;
-  }
-
-  const getProxiedUrl = (url: string) => 
-    `https://wsrv.nl/?url=${encodeURIComponent(url)}&output=webp`;
-
-  const getYoutubeEmbedUrl = (url?: string | null) => {
-    if (!url) return null;
-    try {
-        const regExp = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
-        const match = url.match(regExp);
-        const videoId = match ? match[1] : null;
-
-        if (videoId) {
-            return `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&controls=1`;
+    useEffect(() => {
+        if (!item) return;
+        if (item.posterUrl) {
+            setImgSrc(item.posterUrl);
+        } else {
+            setImgSrc(`https://tse2.mm.bing.net/th?q=${encodeURIComponent(item.title + " " + item.year + " official poster")}&w=400&h=600&c=7&rs=1&p=0`);
         }
-    } catch(e) {
-        console.error("Invalid YouTube URL", e);
-    }
-    return null;
-  };
+    }, [item]);
 
-  useEffect(() => {
-    const loadData = async () => {
-      if (title && type) {
-        setLoading(true);
-        setItem(null);
-        setRecommendations([]);
-        setBackdropError(false);
-        setPosterError(false);
-        setIsBackdropBing(false);
-        setIsPosterBing(false);
-        setExpandedSeason(null);
-        setEpisodesCache({});
-        setLoadingSeason(null);
-        setTrailerUrl(null);
-        setIsRatingExpanded(false);
-
-        // Fetch main details and recommendations in parallel
-        const [detailsData, recsData] = await Promise.all([
-            fetchMediaDetails(title, type),
-            fetchRecommendations(title, type)
-        ]);
+    // -- ADAPTIVE COLOR LOGIC --
+    const themeColor = useMemo(() => {
+        if (!item?.genres) return '#00F0FF';
+        const genres = item.genres.map(g => g.toLowerCase());
         
-        if (detailsData) {
-            setItem(detailsData);
-            
-            if (detailsData.trailerUrl) {
-                setTrailerUrl(detailsData.trailerUrl);
-            }
+        // RED: Intense, Danger, Action
+        if (genres.some(g => ['action', 'horror', 'war', 'crime'].includes(g))) return '#FF003C';
+        
+        // CYAN: Tech, Future, Magic
+        if (genres.some(g => ['sci-fi', 'science fiction', 'fantasy', 'animation', 'anime', 'adventure'].includes(g))) return '#00F0FF';
+        
+        // YELLOW: Energy, Light, Human
+        if (genres.some(g => ['comedy', 'drama', 'romance', 'family', 'music'].includes(g))) return '#FCEE0A';
+        
+        // PURPLE: Mystery, Thriller
+        if (genres.some(g => ['mystery', 'thriller'].includes(g))) return '#b026ff';
+        
+        return '#00F0FF';
+    }, [item]);
 
-            if (detailsData.backdropUrl) {
-                setBackdropSrc(getProxiedUrl(detailsData.backdropUrl));
-                setIsBackdropBing(false);
-            } else {
-                setBackdropSrc(getBingUrl(`${detailsData.title} ${detailsData.type}`, 'backdrop'));
-                setIsBackdropBing(true);
-            }
-
-            if (detailsData.posterUrl) {
-                setPosterSrc(getProxiedUrl(detailsData.posterUrl));
-                setIsPosterBing(false);
-            } else {
-                setPosterSrc(getBingUrl(`${detailsData.title} ${detailsData.type}`, 'poster'));
-                setIsPosterBing(true);
-            }
-
-            if (!detailsData.trailerUrl) {
-                setLoadingTrailer(true);
-                fetchTrailerUrl(detailsData.title, detailsData.type).then(url => {
-                    setTrailerUrl(url);
-                    setLoadingTrailer(false);
-                });
-            }
-        }
-
-        if (recsData) {
-            setRecommendations(recsData);
-        }
-
-        setLoading(false); 
-      }
+    const loadEpisodes = async (t: string, s: number) => {
+        setLoadingEpisodes(true);
+        try { const eps = await fetchSeasonEpisodes(t, s); setEpisodes(eps); } catch (e) { console.error(e); } finally { setLoadingEpisodes(false); }
     };
-    loadData();
-  }, [title, type]);
 
+    const openImdb = () => {
+        if (!item) return;
+        const url = item.imdbId ? `https://www.imdb.com/title/${item.imdbId}` : `https://www.imdb.com/find?q=${encodeURIComponent(item.title)}`;
+        window.open(url, '_blank');
+    };
 
-  const handleBackdropError = () => {
-      if (!isBackdropBing && item) {
-          setIsBackdropBing(true);
-          setBackdropSrc(getBingUrl(`${item.title} movie`, 'backdrop'));
-      } else {
-          setBackdropError(true);
-      }
-  }
+    // Prepare Glitch Config
+    const glitchIntensity = settings.glitchIntensity || 0;
+    const isGlitchActive = glitchIntensity > 0;
 
-  const handlePosterError = () => {
-      if (!isPosterBing && item) {
-          setIsPosterBing(true);
-          setPosterSrc(getBingUrl(`${item.title} movie`, 'poster'));
-      } else {
-          setPosterError(true);
-      }
-  }
-
-  const toggleSeason = async (seasonNumber: number) => {
-    if (expandedSeason === seasonNumber) {
-      setExpandedSeason(null);
-      return;
-    }
-
-    setExpandedSeason(seasonNumber);
-
-    if (episodesCache[seasonNumber]) {
-        return;
-    }
-
-    if (item) {
-      setLoadingSeason(seasonNumber);
-      try {
-          const episodes = await fetchSeasonEpisodes(item.title, seasonNumber);
-          setEpisodesCache(prev => ({ ...prev, [seasonNumber]: episodes }));
-      } catch (e) {
-          console.error("Failed to fetch episodes", e);
-      } finally {
-          setLoadingSeason(prev => prev === seasonNumber ? null : prev);
-      }
-    }
-  };
-
-  const formatDate = (dateStr?: string) => {
-      if (!dateStr) return 'Unknown Date';
-      try {
-          return new Date(dateStr).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
-      } catch {
-          return dateStr;
-      }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen text-white">
-        <div className="flex flex-col items-center gap-4 p-8 bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/10 shadow-glass">
-             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white/80 shadow-lg"></div>
-             <p className="text-slate-300 animate-pulse font-medium">Fetching details...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!item) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen text-white gap-4">
-        <p className="text-xl font-medium text-slate-300">Media not found.</p>
-        <button onClick={() => navigate(-1)} className="px-6 py-2 bg-white/10 hover:bg-white/20 rounded-xl backdrop-blur-md transition-colors text-white border border-white/10">Go Back</button>
-      </div>
-    );
-  }
-
-  const chartData = item.ratingsBreakdown ? [
-    { name: 'Story', score: item.ratingsBreakdown.story, fill: '#60a5fa' },
-    { name: 'Acting', score: item.ratingsBreakdown.acting, fill: '#a78bfa' },
-    { name: 'Visuals', score: item.ratingsBreakdown.visuals, fill: '#fb7185' },
-    { name: 'Sound', score: item.ratingsBreakdown.sound, fill: '#34d399' },
-  ] : [
-    { name: 'Story', score: item.imdbRating || 0, fill: '#60a5fa' },
-    { name: 'Acting', score: item.imdbRating || 0, fill: '#a78bfa' },
-    { name: 'Visuals', score: item.imdbRating || 0, fill: '#fb7185' },
-    { name: 'Sound', score: item.imdbRating || 0, fill: '#34d399' },
-  ];
-
-  const isSeries = (item.type === MediaType.SHOW || item.type === MediaType.ANIME) && item.subType !== 'Movie';
-  const inWatchlist = isInWatchlist(item.id);
-  const trailerEmbedUrl = getYoutubeEmbedUrl(trailerUrl);
-  
-  const isDubbed = item.audioType && (item.audioType.includes('Dub') || item.audioType.includes('Multi'));
-  const originalLang = item.originalLanguage ? item.originalLanguage.toUpperCase() : null;
-
-  const hasSevereContent = item.contentRatingDetails?.some(d => d.severity.toLowerCase() === 'severe') ?? false;
-
-  return (
-    <>
-        <div className="min-h-screen pb-20 pl-0 md:pl-20 lg:pl-64 transition-all duration-300 overflow-x-hidden">
-        {/* Backdrop Banner */}
-        <div className="relative h-[45vh] w-full bg-slate-950 overflow-hidden">
-            {!backdropError ? (
-                <img 
-                src={backdropSrc} 
-                alt="Backdrop" 
-                className="w-full h-full object-cover opacity-60"
-                onError={handleBackdropError}
-                />
-            ) : (
-                <div className="w-full h-full flex items-center justify-center opacity-20 bg-slate-800">
-                    <ImageOff size={64} />
+    if (loading) return (
+        <div className="min-h-screen flex items-center justify-center bg-transparent font-orbitron pl-0 md:pl-20 lg:pl-64 transition-all duration-300">
+            <div className="flex flex-col items-center gap-4 relative">
+                <div className="absolute inset-0 bg-[#FCEE0A] blur-3xl opacity-10"></div>
+                <div className="text-[#FCEE0A] text-2xl font-black tracking-[0.2em] animate-pulse">ESTABLISHING LINK...</div>
+                <div className="w-64 h-2 bg-[#2a2a2a] relative overflow-hidden clip-path-polygon-[0_0,100%_0,95%_100%,0%_100%]">
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#00F0FF] to-transparent animate-shimmer"></div>
+                    <div className="h-full bg-[#00F0FF] w-1/3 animate-progress"></div>
                 </div>
-            )}
-        
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/10 to-transparent" />
-            
-            <button 
-            onClick={() => navigate(-1)}
-            className="absolute top-6 left-6 bg-white/5 backdrop-blur-2xl border border-white/10 p-3 rounded-full hover:bg-white/10 transition-all z-20 group/back shadow-lg hover:shadow-[0_0_20px_rgba(255,255,255,0.1)]"
-            >
-             {/* Back Button Glow */}
-             <div className="absolute -inset-2 bg-white/20 rounded-full blur-md opacity-30 group-hover/back:opacity-100 transition-opacity duration-300 z-[-1]"></div>
-            <ArrowLeft size={24} className="text-white group-hover/back:-translate-x-1 transition-transform" />
-            </button>
-        </div>
-
-        <div className="max-w-7xl mx-auto px-6 -mt-40 relative z-10">
-            <div className="flex flex-col md:flex-row gap-8">
-            
-            {/* Left Column: Poster & Quick Info */}
-            <div className="w-full md:w-72 flex-shrink-0 flex flex-col gap-6">
-                {/* Poster - Glass Container */}
-                <div className="w-full aspect-[2/3] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 bg-white/5 backdrop-blur-3xl overflow-visible relative z-20 group">
-                     {/* Poster Ambient Glow */}
-                     <div className="absolute -inset-4 bg-white/10 rounded-[2rem] blur-2xl opacity-50 group-hover:opacity-70 transition-opacity duration-500 z-[-1]"></div>
-
-                    <div className="w-full h-full rounded-2xl overflow-hidden relative z-10">
-                        {!posterError ? (
-                            <img 
-                            src={posterSrc} 
-                            alt={item.title} 
-                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                            onError={handlePosterError}
-                            />
-                        ) : (
-                            <div className="w-full h-full flex flex-col items-center justify-center p-4 text-slate-500">
-                                <ImageOff size={48} className="mb-2 opacity-50" />
-                                <span className="text-center text-sm">{item.title}</span>
-                            </div>
-                        )}
-                    </div>
+                <div className="font-mono text-xs text-[#00F0FF] mt-2 flex gap-4">
+                     <span>B: <DataStream className="inline" color="#00F0FF" /></span>
+                     <span>H: <DataStream className="inline" color="#00F0FF" /></span>
                 </div>
+            </div>
+        </div>
+    );
+
+    if (!item) return <div className="min-h-screen flex items-center justify-center bg-transparent text-[#FF003C] font-orbitron text-2xl tracking-widest font-bold pl-0 md:pl-20 lg:pl-64 transition-all duration-300">SYSTEM_FAILURE // DATA_LOST</div>;
+
+    const inList = isInWatchlist(item.id);
+    const rating = Number(item.imdbRating || 0).toFixed(1);
+
+    const metadataItems = [
+        { icon: <Star size={10} />, value: rating, label: "RATING" },
+        { icon: <Calendar size={10} />, value: item.releaseDate || item.year, label: "RELEASE" },
+        { icon: <Globe size={10} />, value: item.country?.split(',')[0] || 'INTL', label: "REGION" },
+        { icon: <Radio size={10} />, value: item.audioType?.split(' ')[0] || 'Unk', label: "AUDIO" },
+        { icon: <Layers size={10} />, value: item.type === MediaType.SHOW ? 'SERIES' : 'MOVIE', label: "TYPE" },
+        { icon: <ShieldAlert size={10} />, value: item.maturityRating || 'NR', label: "CLASS" }
+    ];
+
+    const techSpecs = [
+        { icon: <MonitorPlay size={12} />, val: '4K_UHD', label: "RES" },
+        { icon: <Speaker size={12} />, val: 'DOLBY', label: "AUDIO" },
+        { icon: <Zap size={12} />, val: 'HDR10+', label: "COLOR" },
+        { icon: <Clapperboard size={12} />, val: '2.39:1', label: "RATIO" }
+    ];
+
+    return (
+        <div className="min-h-screen bg-transparent text-[#e0e0e0] relative pb-20 font-rajdhani selection:text-black overflow-x-hidden pl-0 md:pl-20 lg:pl-64 transition-all duration-300" 
+             style={{ '--glow-color': themeColor } as React.CSSProperties}>
+            <style>{`::selection { background-color: ${themeColor}; color: black; }`}</style>
+            
+            {/* DYNAMIC CYBERPUNK STYLES */}
+            <style>{`
+                .hover-glow { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+                .hover-glow:hover {
+                    box-shadow: 0 0 15px ${themeColor}50, inset 0 0 10px ${themeColor}10;
+                    border-color: ${themeColor} !important;
+                    color: ${themeColor} !important;
+                    text-shadow: 0 0 8px ${themeColor}80;
+                }
+                .hover-glow svg { transition: stroke 0.3s ease; }
+                .hover-glow:hover svg { stroke: ${themeColor}; }
                 
-                {/* Info Cards Grid - Compact on Mobile */}
-                <div className="grid grid-cols-2 gap-3 md:flex md:flex-col md:gap-6">
+                .hover-glow-subtle { transition: all 0.3s ease; }
+                .hover-glow-subtle:hover {
+                    border-color: ${themeColor}80 !important;
+                    box-shadow: 0 0 15px ${themeColor}20;
+                    transform: translateY(-2px);
+                }
+
+                .active-press:active {
+                    transform: scale(0.96);
+                }
+
+                .animate-slide-up { animation: slideUp 0.5s ease-out forwards; }
+                @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+                /* === BORDER PULSE ANIMATIONS === */
+                @keyframes cyber-pulse-border {
+                    0%, 100% { border-color: ${themeColor}30; box-shadow: 0 0 0 transparent; }
+                    50% { border-color: ${themeColor}80; box-shadow: 0 0 10px ${themeColor}20; }
+                }
+
+                .cyber-border-pulse {
+                    animation: cyber-pulse-border 4s infinite ease-in-out;
+                }
+
+                .cyber-border-pulse:hover {
+                    animation-play-state: paused;
+                }
+
+                .cyber-btn-pulse {
+                    animation: cyber-pulse-border 2s infinite ease-in-out;
+                }
+
+                .cyber-btn-pulse:hover {
+                     animation-play-state: paused;
+                }
+
+                /* === HOLOGRAPHIC TEXT ANIMATION === */
+                @keyframes holo-flicker {
+                    0%, 100% { opacity: 1; text-shadow: 0 0 10px ${themeColor}, 0 0 2px ${themeColor}; transform: skew(0deg); }
+                    33% { opacity: 0.9; text-shadow: 0 0 5px ${themeColor}, 0 0 0px transparent; transform: skew(0deg); }
+                    66% { opacity: 1; text-shadow: 0 0 10px ${themeColor}, 0 0 2px ${themeColor}; transform: skew(0deg); }
                     
-                    {/* Rating Breakdown */}
-                    <div className="col-span-1 md:w-full bg-white/[0.03] backdrop-blur-3xl p-3 md:p-5 rounded-xl md:rounded-2xl border border-white/[0.05] shadow-glass relative overflow-hidden group">
-                        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-30 group-hover:opacity-100 transition-opacity duration-700"></div>
-                        <div className="flex items-center justify-between mb-4 relative z-10">
-                            <h3 className="text-[10px] md:text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1 md:gap-2">
-                            <Activity size={12} className="text-white md:w-[14px] md:h-[14px]" /> <span className="hidden xs:inline">Analysis</span>
-                            </h3>
-                            <div className="flex items-center gap-1 bg-black/30 px-1.5 py-0.5 md:px-2 md:py-1 rounded-lg border border-white/5">
-                            <Star size={10} className="text-yellow-400" fill="currentColor" />
-                            <span className="text-[10px] md:text-xs font-bold text-white">{item.imdbRating || 'N/A'}</span>
-                            </div>
+                    /* Glitch Jitter */
+                    95% { opacity: 1; transform: skew(0deg); }
+                    96% { opacity: 0.8; transform: skew(-2deg); text-shadow: 2px 0 0 ${themeColor}, -2px 0 0 #fff; }
+                    97% { opacity: 1; transform: skew(0deg); }
+                }
+
+                .holo-text {
+                    color: ${themeColor};
+                    animation: holo-flicker 4s infinite linear;
+                    position: relative;
+                    display: inline-block;
+                }
+                
+                /* Scanline overlay for text */
+                .holo-text::after {
+                    content: '';
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.2) 51%);
+                    background-size: 100% 3px;
+                    pointer-events: none;
+                }
+
+                /* === DYNAMIC GLITCH EFFECTS === */
+                ${isGlitchActive ? `
+                    .cyber-glitch-active {
+                        position: relative;
+                        display: inline-block;
+                    }
+                    .cyber-glitch-active::before,
+                    .cyber-glitch-active::after {
+                        content: attr(data-text);
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        opacity: ${Math.min(0.8, glitchIntensity + 0.3)};
+                        background: transparent;
+                    }
+                    .cyber-glitch-active::before {
+                        color: #00F0FF;
+                        z-index: -1;
+                        transform: translate(-${glitchIntensity * 2}px, 0);
+                        animation: glitch-anim-1 ${3 / Math.max(0.1, glitchIntensity)}s infinite linear alternate-reverse;
+                    }
+                    .cyber-glitch-active::after {
+                        color: #FF003C;
+                        z-index: -2;
+                        transform: translate(${glitchIntensity * 2}px, 0);
+                        animation: glitch-anim-2 ${2 / Math.max(0.1, glitchIntensity)}s infinite linear alternate-reverse;
+                    }
+                    
+                    @keyframes glitch-anim-1 {
+                        0% { clip-path: inset(0 0 0 0); }
+                        5% { clip-path: inset(10% 0 80% 0); }
+                        10% { clip-path: inset(0 0 0 0); }
+                        100% { clip-path: inset(0 0 0 0); }
+                    }
+                    @keyframes glitch-anim-2 {
+                        0% { clip-path: inset(0 0 0 0); }
+                        15% { clip-path: inset(80% 0 5% 0); }
+                        20% { clip-path: inset(0 0 0 0); }
+                        100% { clip-path: inset(0 0 0 0); }
+                    }
+                    
+                    /* Button Glitch Hover */
+                    .btn-cyber-glitch:hover {
+                        animation: btn-glitch-pulse 0.2s infinite;
+                        text-shadow: ${glitchIntensity * 2}px 0 #00F0FF, -${glitchIntensity * 2}px 0 #FF003C;
+                        border-color: ${themeColor} !important;
+                    }
+                    
+                    @keyframes btn-glitch-pulse {
+                        0% { transform: skew(0deg); }
+                        25% { transform: skew(-${glitchIntensity * 5}deg); }
+                        75% { transform: skew(${glitchIntensity * 5}deg); }
+                        100% { transform: skew(0deg); }
+                    }
+                ` : ''}
+            `}</style>
+
+            {/* Background Artifacts (Dynamic Color) */}
+            <div className="fixed top-20 right-10 w-96 h-96 border rounded-full animate-[spin_20s_linear_infinite] border-t-transparent border-l-transparent pointer-events-none z-0 opacity-20" style={{ borderColor: `${themeColor}20` }}></div>
+            <div className="fixed bottom-20 left-10 md:left-24 lg:left-72 w-64 h-64 border rotate-45 pointer-events-none z-0 opacity-20" style={{ borderColor: `${themeColor}20` }}></div>
+            
+            {/* Header */}
+            <div 
+                className="fixed top-0 right-0 z-50 border-b px-6 py-4 flex items-center justify-between backdrop-blur-md transition-all duration-300 left-0 md:left-20 lg:left-64"
+                style={{ ...visualStyles.panel, ...visualStyles.border }}
+            >
+                <div className="flex items-center gap-4">
+                    <button 
+                        onClick={() => navigate(-1)} 
+                        className="group relative px-6 py-2 border transition-all duration-300 hover-glow active-press btn-cyber-glitch"
+                        style={{ ...visualStyles.panel, ...visualStyles.border, ...CP.clips.tag, borderColor: `${themeColor}60` }}
+                    >
+                        <div className="flex items-center gap-3">
+                            <ArrowLeft size={16} className="text-white group-hover:text-[var(--theme-color)]" style={{ '--theme-color': themeColor } as React.CSSProperties} />
+                            <span className="font-orbitron text-xs font-bold text-white group-hover:text-[var(--theme-color)] tracking-[0.2em]" style={{ '--theme-color': themeColor } as React.CSSProperties}>BACK</span>
                         </div>
-                        
-                        <div className="space-y-2 md:space-y-3 relative z-10">
-                            {chartData.map((data, idx) => (
-                            <div key={data.name} className="flex flex-col gap-1">
-                                <div className="flex justify-between text-[8px] md:text-[10px] text-slate-400 uppercase font-bold tracking-wider">
-                                    <span>{data.name}</span>
-                                    <span style={{ color: data.fill }}>{data.score}/10</span>
-                                </div>
-                                <div className="h-1 md:h-1.5 w-full bg-white/10 rounded-full overflow-hidden border border-white/5">
-                                    <div 
-                                        className="h-full rounded-full transition-all duration-1000 ease-out"
-                                        style={{ 
-                                        width: `${data.score * 10}%`, 
-                                        backgroundColor: data.fill,
-                                        boxShadow: `0 0 10px ${data.fill}40`
-                                        }}
-                                    ></div>
-                                </div>
+                    </button>
+                    
+                    <div className="hidden md:flex items-center gap-4">
+                        <div className="w-[1px] h-6 bg-white/20"></div>
+                         <h1 
+                            className={`font-orbitron font-black text-xl text-cp-yellow tracking-[0.1em] uppercase truncate max-w-md cursor-default ${isGlitchActive ? 'cyber-glitch-active' : 'group'}`}
+                            data-text={item.title}
+                         >
+                            {isGlitchActive ? item.title : <span className="group-hover:animate-glitch inline-block">{item.title}</span>}
+                        </h1>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                    {/* Status Artifact */}
+                    <div className="hidden lg:flex flex-col items-end mr-4">
+                        <div className="flex items-center gap-2 text-[9px] font-mono animate-pulse" style={{ color: themeColor }}>
+                            <Activity size={10} /> LINK_ESTABLISHED
+                        </div>
+                        <DataStream className="text-right" color={themeColor} />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <button 
+                            onClick={() => navigate('/settings')} 
+                            className="p-3 border border-transparent transition-all duration-300 text-slate-400 hover-glow active-press btn-cyber-glitch"
+                            style={{ ...visualStyles.panel, ...visualStyles.border }}
+                        >
+                            <Settings size={18} />
+                        </button>
+                        <button 
+                            onClick={() => toggleWatchlist(item)} 
+                            className={`relative p-3 border transition-all duration-300 active-press btn-cyber-glitch ${inList ? 'bg-opacity-10 shadow-[0_0_15px_var(--glow)]' : 'text-slate-400 hover-glow'}`}
+                            style={{ 
+                                ...visualStyles.panel, 
+                                ...CP.clips.tag,
+                                borderColor: inList ? themeColor : 'rgba(255,255,255,0.2)',
+                                color: inList ? themeColor : undefined,
+                                backgroundColor: inList ? `${themeColor}1a` : undefined,
+                                '--glow': `${themeColor}40`
+                            } as React.CSSProperties}
+                        >
+                            <Heart size={18} fill={inList ? "currentColor" : "none"} />
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div className="relative z-10 pt-24 px-4 md:px-12 lg:px-20 max-w-7xl mx-auto flex flex-col gap-8 animate-slide-up">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    {/* Left Column: Holo Poster */}
+                    <div className="lg:col-span-3">
+                        <div className="relative group">
+                            {/* Scanline Overlay (Dynamic) */}
+                            <div className="absolute inset-0 z-20 pointer-events-none h-[15%] w-full animate-scan opacity-50 group-hover:opacity-100"
+                                 style={{ backgroundImage: `linear-gradient(to bottom, transparent, ${themeColor}33, transparent)` }}></div>
+                            
+                            {/* Decorative Corners */}
+                            <div className="absolute -top-1 -left-1 w-6 h-6 border-t-2 border-l-2 z-20" style={{ borderColor: themeColor }}></div>
+                            <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-2 border-r-2 z-20" style={{ borderColor: themeColor }}></div>
+                            
+                            {/* Holo Projector Base */}
+                            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[80%] h-[2px] z-30"
+                                 style={{ backgroundColor: themeColor, boxShadow: `0 0 20px ${themeColor}` }}></div>
+                            
+                            <div className="aspect-[2/3] bg-transparent relative overflow-hidden border transition-colors" 
+                                style={{ ...visualStyles.border, ...visualStyles.glow, borderColor: `${themeColor}40`, boxShadow: `0 0 15px ${themeColor}20`, clipPath: "polygon(10% 0, 100% 0, 100% 90%, 90% 100%, 0 100%, 0 10%)" }}>
+                                <img src={imgSrc} alt={item.title} className="w-full h-full object-cover transition-all duration-700 opacity-90 group-hover:opacity-100" />
+                                {/* Grid Overlay */}
+                                <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.8)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.8)_1px,transparent_1px)] bg-[length:20px_20px] pointer-events-none opacity-20"></div>
                             </div>
-                            ))}
+                            
+                            <div className="mt-2 flex justify-between items-center text-[9px] font-mono text-slate-500">
+                                <span>IMG_ID: {item.id.substring(0,6).toUpperCase()}</span>
+                                <Scan size={12} style={{ color: themeColor }} />
+                            </div>
                         </div>
                     </div>
 
-                    {/* Platforms List */}
-                    <div className="col-span-1 md:w-full bg-white/[0.03] backdrop-blur-3xl p-3 md:p-5 rounded-xl md:rounded-2xl border border-white/[0.05] shadow-glass">
-                        <h3 className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 md:mb-4 flex items-center gap-2">
-                            <MonitorPlay size={12} className="md:w-[14px] md:h-[14px]" /> Available
-                        </h3>
-                        <div className="flex flex-wrap gap-2 md:gap-3">
-                            {item.platforms && item.platforms.length > 0 ? item.platforms.map(platform => (
-                                <PlatformItem key={platform} platform={platform} title={item.title} />
-                            )) : <span className="text-slate-500 text-[10px] md:text-sm italic">Not available</span>}
-                        </div>
-                    </div>
+                    {/* Right Column: 2x2 Grid + Details */}
+                    <div className="lg:col-span-9 flex flex-col gap-6 relative">
+                        {/* PCB Connecting Lines (Decoration) */}
+                        <div className="absolute top-[70px] left-1/2 -translate-x-1/2 w-px h-10 bg-white/10 hidden md:block"></div>
+                        <div className="absolute top-[140px] left-1/2 -translate-x-1/2 w-4 h-4 rounded-full blur-md opacity-20 hidden md:block" style={{ backgroundColor: themeColor }}></div>
 
-                    {/* Tech Specs */}
-                    {item.techSpecs && item.techSpecs.length > 0 && (
-                        <div className="col-span-2 sm:col-span-1 md:w-full bg-white/[0.03] backdrop-blur-3xl p-3 md:p-5 rounded-xl md:rounded-2xl border border-white/[0.05] shadow-glass">
-                            <h3 className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 md:mb-4 flex items-center gap-2">
-                                <Settings2 size={12} className="md:w-[14px] md:h-[14px]" /> Specs
-                            </h3>
-                            <div className="flex flex-wrap gap-1.5 md:gap-2">
-                                {item.techSpecs.map(spec => (
-                                    <span key={spec} className="px-1.5 py-0.5 md:px-2 md:py-1 bg-white/5 text-slate-300 border border-white/10 rounded text-[10px] md:text-xs font-semibold">
-                                        {spec}
+                        {/* 2x2 Grid System */}
+                        <div className="grid grid-cols-2 gap-3 w-full">
+                            
+                            {/* Box 1: Metadata */}
+                            <div className="border p-3 relative group flex flex-col min-h-[140px] hover-glow-subtle cyber-border-pulse" 
+                                style={{ ...visualStyles.panel, ...visualStyles.border, ...CP.clips.panel }}>
+                                <div className="absolute top-0 right-0 w-12 h-1" style={{ backgroundColor: themeColor }}></div>
+                                <div className="flex items-center gap-1.5 mb-2 opacity-90 border-b border-white/5 pb-1 justify-between">
+                                    <div className="flex items-center gap-1.5">
+                                        <Hash size={10} style={{ color: themeColor }} />
+                                        <span className="text-[10px] font-orbitron font-bold tracking-[0.2em] text-cp-red">METADATA</span>
+                                    </div>
+                                    <div className="w-1.5 h-1.5 animate-pulse" style={{ backgroundColor: themeColor }}></div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-y-2 gap-x-1 flex-1 content-start">
+                                    {metadataItems.map((m, idx) => (
+                                        <div key={idx} className="flex items-center gap-1.5 overflow-hidden group/item">
+                                            <span className="opacity-80 shrink-0 group-hover/item:scale-110 transition-transform" style={{ color: themeColor }}>{m.icon}</span>
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] font-orbitron tracking-wider leading-none mb-0.5 opacity-80 text-cp-yellow">{m.label}</span>
+                                                <span className="text-[13px] font-bold text-cp-cyan tracking-wide truncate leading-none font-rajdhani">{m.value}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Box 2: Tech Specs */}
+                            <div className="border p-3 relative group flex flex-col min-h-[140px] hover-glow-subtle cyber-border-pulse" 
+                                style={{ ...visualStyles.panel, ...visualStyles.border, ...CP.clips.panelRev }}>
+                                <div className="absolute top-0 left-0 w-12 h-1" style={{ backgroundColor: themeColor }}></div>
+                                <div className="flex items-center gap-1.5 mb-2 opacity-90 border-b border-white/5 pb-1 justify-between">
+                                    <div className="flex items-center gap-1.5">
+                                        <Cpu size={10} style={{ color: themeColor }} />
+                                        <span className="text-[10px] font-orbitron font-bold tracking-[0.2em] text-cp-red">TECH_SPECS</span>
+                                    </div>
+                                    <Database size={10} className="opacity-50" style={{ color: themeColor }} />
+                                </div>
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-y-2 gap-x-1 flex-1 content-start">
+                                     {techSpecs.map((s, i) => (
+                                        <div key={i} className="flex items-center gap-1.5 overflow-hidden">
+                                            <span className="opacity-80 shrink-0" style={{ color: themeColor }}>{s.icon}</span>
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] font-orbitron tracking-wider leading-none mb-0.5 opacity-80 text-cp-yellow">{s.label}</span>
+                                                <span className="text-[13px] font-bold text-cp-cyan font-rajdhani tracking-wider truncate">{s.val}</span>
+                                            </div>
+                                        </div>
+                                     ))}
+                                </div>
+                            </div>
+
+                            {/* Box 3: Actions (Trailer & IMDb) */}
+                            <div className="border p-3 relative flex flex-col justify-between gap-2 min-h-[100px] hover-glow-subtle"
+                                style={{ ...visualStyles.panel, ...visualStyles.border }}>
+                                <div className="absolute bottom-0 left-0 w-full h-[1px] opacity-50" style={{ background: `linear-gradient(to right, ${themeColor}, transparent)` }}></div>
+                                <div className="flex items-center gap-1.5">
+                                    <Play size={10} style={{ color: themeColor }} />
+                                    <span className="text-[10px] font-orbitron font-bold text-cp-red uppercase tracking-widest">ACTIONS</span>
+                                </div>
+                                
+                                <div className="flex gap-2 h-full items-end">
+                                    <button 
+                                        onClick={async () => { const u = await fetchTrailerUrl(item.title, item.type); if (u) { setTrailerUrl(u); setShowTrailer(true); } }} 
+                                        className="flex-1 h-8 text-black font-orbitron font-black tracking-widest text-[9px] flex items-center justify-center gap-1 hover:bg-white transition-all duration-300 hover:scale-[1.02] active-press relative overflow-hidden group btn-cyber-glitch cyber-btn-pulse"
+                                        style={{ ...CP.clips.buttonLeft, backgroundColor: themeColor, boxShadow: `0 0 10px ${themeColor}40` }}
+                                    >
+                                        <div className="absolute inset-0 bg-white/50 -translate-x-full group-hover:translate-x-full transition-transform duration-500 skew-x-12"></div>
+                                        TRAILER
+                                    </button>
+                                    <button 
+                                        onClick={openImdb} 
+                                        className="flex-1 h-8 bg-transparent border font-orbitron font-bold tracking-widest text-[9px] flex items-center justify-center gap-1 transition-all duration-300 hover:scale-[1.02] hover-glow active-press btn-cyber-glitch cyber-btn-pulse"
+                                        style={{ ...CP.clips.buttonRight, borderColor: `${themeColor}60`, color: themeColor }}
+                                    >
+                                        IMDb <ExternalLink size={10} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Box 4: OTT Platforms */}
+                            <div className="border p-3 relative flex flex-col min-h-[100px] hover-glow-subtle"
+                                style={{ ...visualStyles.panel, ...visualStyles.border }}>
+                                <div className="absolute bottom-0 right-0 w-full h-[1px] opacity-50" style={{ background: `linear-gradient(to left, ${themeColor}, transparent)` }}></div>
+                                <div className="flex items-center justify-between mb-2 border-b border-white/5 pb-1">
+                                    <span className="text-[10px] font-orbitron font-bold text-cp-red uppercase tracking-widest">NETWORKS</span>
+                                    <HardDrive size={10} style={{ color: themeColor }} />
+                                </div>
+                                <div className="flex flex-wrap gap-1.5 content-start overflow-hidden">
+                                    {item.platforms?.length ? item.platforms.slice(0, 6).map(p => <PlatformLogo key={p} platform={p} className="w-6 h-6" color={themeColor} />) : <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest font-orbitron self-center mt-2">OFFLINE</span>}
+                                </div>
+                            </div>
+
+                        </div>
+
+                        {/* Synopsis Terminal */}
+                        <div className="border-l-2 p-6 relative bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.02)_50%,transparent_75%,transparent_100%)] bg-[length:4px_4px]"
+                             style={{ ...visualStyles.panel, borderColor: themeColor }}>
+                            <div className="flex items-center justify-between gap-2 mb-3">
+                                <div className="flex items-center gap-2">
+                                    <Terminal size={14} style={{ color: themeColor }} />
+                                    <span className="text-[11px] font-orbitron font-bold uppercase tracking-[0.2em] holo-text">PLOT_SUMMARY</span>
+                                </div>
+                                <div className="text-[9px] font-mono text-cp-yellow">LN: {item.description?.length || 0}</div>
+                            </div>
+                            <p className="text-cyan-400 text-base leading-7 font-rajdhani font-medium tracking-wide opacity-90 shadow-black drop-shadow-md">
+                                {item.description ? <><span className="mr-2 opacity-70" style={{ color: themeColor }}>>></span>{item.description}<span className="animate-pulse ml-1" style={{ color: themeColor }}>_</span></> : '>> ENCRYPTED_DATA // ACCESS_DENIED'}
+                            </p>
+                            <div className="flex flex-wrap gap-2 mt-5">
+                                {item.genres?.map(g => (
+                                    <span key={g} 
+                                        className="px-3 py-1 bg-white/5 border border-white/10 text-[9px] font-orbitron font-bold transition-colors cursor-default uppercase hover:bg-white/10 hover:text-white text-cp-yellow"
+                                        style={{ borderColor: `${themeColor}40` }}
+                                    >
+                                        {g}
                                     </span>
                                 ))}
                             </div>
                         </div>
-                    )}
-                </div>
 
-            </div>
-
-            {/* Main Content Info */}
-            <div className="flex-1 pt-4 md:pt-12">
-                <div className="flex items-center gap-3 flex-wrap">
-                    <h1 className="text-4xl md:text-5xl font-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300 drop-shadow-lg">{item.title}</h1>
-                    {item.subType && (
-                        <span className="bg-white/10 backdrop-blur-md border border-white/10 text-white px-3 py-1 rounded-lg text-sm font-bold tracking-wide shadow-lg">
-                            {item.subType}
-                        </span>
-                    )}
-                </div>
-                
-                <div className="flex flex-wrap items-center gap-4 text-sm md:text-base text-slate-300 mb-6 mt-3">
-                <span className="flex items-center gap-1.5"><Calendar size={16} className="text-slate-400" /> {formatDate(item.releaseDate)}</span>
-                {item.country && <span className="flex items-center gap-1.5"><Globe size={16} className="text-slate-400" /> {item.country}</span>}
-                {item.maturityRating && <span className="flex items-center gap-1.5"><ShieldAlert size={16} className="text-accent" /> {item.maturityRating}</span>}
-                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-yellow-400/10 border border-yellow-400/20 text-yellow-300 font-bold"><Star size={16} fill="currentColor" /> {item.imdbRating || 'N/A'}</span>
-                
-                {(originalLang || isDubbed) && (
-                    <span className="flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/10 rounded-md text-xs font-medium">
-                        <Languages size={14} className="text-blue-300" />
-                        <span className="text-slate-200">
-                             {originalLang || 'Unknown'} 
-                             {isDubbed && <span className="text-slate-400 ml-1">• Dub Available</span>}
-                        </span>
-                    </span>
-                )}
-                
-                 {item.techSpecs && item.techSpecs.length > 0 && (
-                     <span className="flex items-center gap-1.5 px-2 py-0.5 bg-white/5 border border-white/10 rounded-md text-xs"><Award size={14} className="text-purple-300" /> {item.techSpecs[0]}</span>
-                 )}
-                </div>
-
-                {/* Genres & Actions */}
-                <div className="flex flex-wrap gap-4 mb-8 items-center justify-between">
-                    <div className="flex flex-wrap gap-2">
-                        {(item.genres || []).map(g => (
-                            <span key={g} className="px-4 py-1.5 bg-white/5 border border-white/5 rounded-full text-sm text-slate-200 hover:bg-white/10 hover:border-white/10 transition-all cursor-default relative group/genre overflow-hidden">
-                             {/* Genre Glow */}
-                             <div className="absolute -inset-2 bg-white/10 rounded-full blur-md opacity-30 group-hover/genre:opacity-100 transition-opacity duration-300 z-[-1]"></div>
-                            {g}
-                            </span>
-                        ))}
-                    </div>
-                    
-                    <div className="flex items-center gap-3">
-                         <a 
-                            href={item.imdbId ? `https://www.imdb.com/title/${item.imdbId}/` : `https://www.imdb.com/find?q=${encodeURIComponent(item.title + " " + item.year)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 px-4 py-2 rounded-full font-bold transition-all duration-300 border backdrop-blur-2xl bg-[#f5c518]/10 border-[#f5c518]/20 text-[#f5c518] hover:bg-[#f5c518]/20 hover:border-[#f5c518]/40 hover:shadow-[0_0_15px_rgba(245,197,24,0.2)] text-sm relative group/imdb"
-                        >
-                            <div className="absolute -inset-1 bg-yellow-500/30 rounded-full blur-md opacity-40 group-hover/imdb:opacity-100 transition-opacity duration-300 z-[-1]"></div>
-                            <span className="font-black bg-[#f5c518] text-black px-1 rounded-[2px] text-[10px] leading-none flex items-center h-3.5">IMDb</span>
-                            <span>View</span>
-                        </a>
-
-                         <button 
-                            onClick={() => setShowTrailerModal(true)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold transition-all duration-300 border backdrop-blur-2xl text-sm relative group/trailer
-                            ${loadingTrailer 
-                                ? 'bg-white/5 border-white/5 text-slate-400 cursor-wait' 
-                                : 'bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500/20 hover:border-red-500/40 hover:shadow-[0_0_15px_rgba(239,68,68,0.2)]'
-                            }`}
-                            disabled={loadingTrailer}
-                         >
-                            <div className="absolute -inset-1 bg-red-500/30 rounded-full blur-md opacity-40 group-hover/trailer:opacity-100 transition-opacity duration-300 z-[-1]"></div>
-                            
-                            {loadingTrailer ? <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white/30 border-t-white"></div> : <PlayCircle size={16} />}
-                            {loadingTrailer ? 'Loading...' : 'Trailer'}
-                         </button>
-
-                        <button 
-                            onClick={() => toggleWatchlist(item)}
-                            className={`
-                                flex items-center gap-2 px-4 py-2 rounded-full font-bold transition-all duration-300 border backdrop-blur-2xl text-sm relative group/watchlist
-                                ${inWatchlist 
-                                    ? 'bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 hover:border-green-500/40 hover:shadow-[0_0_15px_rgba(34,197,94,0.2)]' 
-                                    : 'bg-pink-600/10 border-pink-600/20 text-pink-500 hover:bg-pink-600/20 hover:border-pink-600/40 hover:shadow-[0_0_15px_rgba(219,39,119,0.2)]'}
-                            `}
-                        >
-                            <div className={`absolute -inset-1 rounded-full blur-md opacity-40 group-hover/watchlist:opacity-100 transition-opacity duration-300 z-[-1] ${inWatchlist ? 'bg-green-500/30' : 'bg-pink-500/30'}`}></div>
-
-                            {inWatchlist ? <Check size={16} /> : <Heart size={16} />}
-                            {inWatchlist ? 'Saved' : 'Watchlist'}
-                        </button>
-                    </div>
-                </div>
-
-                {/* Next Episode Banner */}
-                {item.nextEpisode && (
-                    <div className="mb-8 bg-white/[0.03] backdrop-blur-3xl border border-white/[0.05] p-1 rounded-2xl shadow-glass relative group/banner">
-                    <div className="absolute -inset-1 bg-blue-500/20 rounded-2xl blur-xl opacity-30 group-hover/banner:opacity-50 transition-opacity duration-500 z-[-1]"></div>
-                    
-                    <div className="bg-black/10 rounded-xl p-5 flex flex-col sm:flex-row gap-5 items-center justify-between relative z-10">
-                            <div className="flex gap-4 items-center">
-                                <div className="p-3 bg-blue-600/60 rounded-full shadow-[0_0_15px_rgba(37,99,235,0.3)] animate-pulse">
-                                    <Clock className="text-white" size={24} />
+                        {/* Content Advisory Section */}
+                        {item.contentRatingDetails && item.contentRatingDetails.length > 0 && (
+                            <div className="mt-2">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <ShieldCheck size={14} style={{ color: themeColor }} />
+                                    <span className="text-[11px] font-orbitron font-bold uppercase tracking-[0.2em] holo-text">CONTENT_ADVISORY</span>
                                 </div>
-                                <div>
-                                    <h3 className="text-blue-100 font-bold text-lg">Next Episode Arriving</h3>
-                                    <p className="text-white font-medium">
-                                        {formatDate(item.nextEpisode.airDate)} 
-                                        {item.nextEpisode.episodeNumber && ` • Ep ${item.nextEpisode.episodeNumber}`}
-                                    </p>
-                                </div>
-                            </div>
-                            {item.nextEpisode.title && (
-                                <div className="bg-white/5 px-5 py-2.5 rounded-xl text-sm text-blue-100 italic border border-white/10 shadow-inner">
-                                    "{item.nextEpisode.title}"
-                                </div>
-                            )}
-                    </div>
-                    </div>
-                )}
-
-                {/* Content Rating Section (Collapsible) - FIXED SYNTAX ERROR HERE */}
-                {(item.contentRatingDetails && item.contentRatingDetails.length > 0) || item.contentAdvisory ? (
-                    <div className="mb-8 bg-white/[0.03] backdrop-blur-xl border border-white/[0.05] rounded-2xl overflow-visible shadow-glass relative group/rating">
-                        <button 
-                            onClick={() => setIsRatingExpanded(!isRatingExpanded)}
-                            className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors group focus:outline-none relative z-10"
-                        >
-                             {/* Rating Toggle Glow */}
-                             <div className="absolute -inset-1 bg-white/5 rounded-2xl blur-md opacity-30 group-hover:opacity-100 transition-opacity duration-300 z-[-1]"></div>
-
-                            <div className="flex items-center gap-3">
-                                <div className={`p-2 rounded-lg transition-colors ${
-                                    hasSevereContent ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-slate-700/50 text-slate-300 border border-white/5'
-                                }`}>
-                                   {hasSevereContent ? <ShieldAlert size={20} /> : <Info size={20} />}
-                                </div>
-                                <div className="text-left">
-                                    <h3 className="text-sm font-bold text-white">Content Advisory</h3>
-                                    <p className="text-xs text-slate-400">
-                                        {item.contentAdvisory ? "Content warnings present" : "View content details"}
-                                    </p>
-                                </div>
-                            </div>
-                            <ChevronDown size={20} className={`text-slate-500 transition-transform duration-300 ${isRatingExpanded ? 'rotate-180' : ''}`} />
-                        </button>
-
-                        <div className={`transition-all duration-300 ease-in-out bg-black/20 ${isRatingExpanded ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
-                            <div className="p-4 pt-0 space-y-3">
-                                <div className="h-px w-full bg-white/5 mb-4"></div>
-                                {item.contentAdvisory && (
-                                    <div className="mb-4 p-3 bg-white/5 rounded-xl border border-white/5">
-                                        <h4 className="text-xs font-bold text-slate-300 uppercase mb-1">Advisory Summary</h4>
-                                        <p className="text-sm text-slate-200 leading-relaxed">{item.contentAdvisory}</p>
-                                    </div>
-                                )}
-                                
-                                <div className="grid gap-2">
-                                    {item.contentRatingDetails?.map((detail, idx) => (
-                                        <ContentRatingItem key={idx} detail={detail} />
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {item.contentRatingDetails.map((detail, idx) => (
+                                        <div key={idx} className="border p-3 relative overflow-hidden group transition-all hover-glow-subtle"
+                                             style={{ ...visualStyles.panel, ...visualStyles.border }}>
+                                            <div className="flex justify-between items-start mb-2">
+                                                <span className="text-[10px] font-orbitron font-bold text-cp-yellow uppercase tracking-wider">{detail.category}</span>
+                                                <span className={`text-[9px] font-bold px-1.5 py-0.5 border bg-black/50 backdrop-blur-sm ${
+                                                    detail.severity === 'Severe' ? 'text-[#FF003C] border-[#FF003C]' :
+                                                    detail.severity === 'Moderate' ? 'text-orange-400 border-orange-400' :
+                                                    detail.severity === 'Mild' ? 'text-[#FCEE0A] border-[#FCEE0A]' :
+                                                    'text-green-400 border-green-400'
+                                                }`}>
+                                                    {detail.severity}
+                                                </span>
+                                            </div>
+                                            <p className="text-[11px] text-rose-300 font-rajdhani font-medium leading-relaxed">
+                                                {detail.description}
+                                            </p>
+                                        </div>
                                     ))}
                                 </div>
                             </div>
+                        )}
+
+                        {/* Cast Section with Face Recognition Reticles */}
+                        <div className="border-t border-white/10 pt-6">
+                            
+                            {/* Inserted Cyber Arm Interface */}
+                            <CyberArmInterface color={themeColor} />
+
+                            <div className="flex items-center justify-between mb-5">
+                                <div className="text-[11px] font-orbitron font-bold text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                                    <Fingerprint size={14} className="text-white" /> <span className="text-cp-red">BIOMETRIC_DATA // CAST</span>
+                                </div>
+                                <Binary size={14} className="text-white/20" />
+                            </div>
+                            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-4">
+                                {item.cast?.slice(0, 8).map((actor, idx) => (
+                                    <div key={idx} className="flex flex-col items-center gap-2 group cursor-default relative">
+                                        <div className="w-12 h-12 relative overflow-hidden border transition-all" 
+                                             style={{ ...visualStyles.panel, ...visualStyles.border, clipPath: "polygon(20% 0, 100% 0, 100% 80%, 80% 100%, 0 100%, 0 20%)" }}>
+                                            <style>{`.group:hover .border-reticle { border-color: ${themeColor} !important; }`}</style>
+                                            <div className="border-reticle w-full h-full border border-transparent transition-colors">
+                                                 <img src={`https://tse2.mm.bing.net/th?q=${encodeURIComponent(actor + " headshot")}&w=100&h=100&c=7&rs=1&p=0`} alt={actor} className="w-full h-full object-cover transition-all grayscale group-hover:grayscale-0" />
+                                            </div>
+                                            
+                                            {/* Face ID Reticle Overlay (Dynamic) */}
+                                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                                <div className="absolute top-0 left-0 w-2 h-2 border-t border-l" style={{ borderColor: themeColor }}></div>
+                                                <div className="absolute top-0 right-0 w-2 h-2 border-t border-r" style={{ borderColor: themeColor }}></div>
+                                                <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l" style={{ borderColor: themeColor }}></div>
+                                                <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r" style={{ borderColor: themeColor }}></div>
+                                            </div>
+                                        </div>
+                                        <span className="text-[10px] text-center font-bold text-cp-yellow font-orbitron leading-tight uppercase line-clamp-2 transition-colors group-hover:text-white"
+                                        >
+                                            {actor}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
-                ) : null}
+                </div>
 
-                {/* Cast Section */}
-                {item.cast && item.cast.length > 0 && (
-                     <div className="mb-8">
-                         <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                             <Users size={20} className="text-primary" /> Cast
-                         </h3>
-                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                             {item.cast.map(actor => (
-                                 <div key={actor} className="bg-white/5 rounded-xl p-3 border border-white/5 flex items-center gap-3 hover:bg-white/10 transition-colors group/actor relative overflow-hidden">
-                                     {/* Actor Glow */}
-                                     <div className="absolute -inset-2 bg-white/10 rounded-xl blur-md opacity-0 group-hover/actor:opacity-100 transition-opacity duration-300 z-[-1]"></div>
-
-                                     <img 
-                                        src={getBingUrl(actor, 'cast')} 
-                                        alt={actor}
-                                        className="w-10 h-10 rounded-full object-cover bg-slate-800"
-                                        loading="lazy"
-                                     />
-                                     <span className="text-sm font-medium text-slate-200 truncate">{actor}</span>
-                                 </div>
-                             ))}
-                         </div>
-                     </div>
-                )}
-
-                {/* Seasons Section (If TV/Anime) */}
-                {isSeries && item.seasons && item.seasons.length > 0 && (
-                    <div className="mb-8">
-                        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                            <MonitorPlay size={20} className="text-primary" /> Seasons
-                        </h3>
-                        <div className="space-y-3">
-                            {item.seasons.map((season) => (
-                                <div key={season.seasonNumber} className="bg-white/[0.03] border border-white/[0.05] rounded-xl overflow-hidden shadow-glass relative group/season">
-                                    {/* Season Glow */}
-                                    <div className="absolute -inset-1 bg-white/5 rounded-xl blur-md opacity-20 group-hover/season:opacity-50 transition-opacity duration-300 z-[-1]"></div>
-
-                                    <button 
-                                        onClick={() => toggleSeason(season.seasonNumber)}
-                                        className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors text-left relative z-10"
-                                    >
-                                        <div className="flex items-center gap-4">
-                                            <div className="bg-white/10 w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg text-white border border-white/10 shadow-inner">
-                                                {season.seasonNumber}
-                                            </div>
-                                            <div>
-                                                <h4 className="font-bold text-white text-lg">{season.title || `Season ${season.seasonNumber}`}</h4>
-                                                <p className="text-xs text-slate-400">
-                                                    {season.episodeCount} Episodes • {season.releaseDate ? season.releaseDate.split('-')[0] : 'Unknown'}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                             {loadingSeason === season.seasonNumber && <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white"></div>}
-                                             <ChevronDown size={20} className={`text-slate-500 transition-transform duration-300 ${expandedSeason === season.seasonNumber ? 'rotate-180' : ''}`} />
-                                        </div>
-                                    </button>
-                                    
-                                    {/* Episodes List */}
-                                    <div className={`transition-all duration-500 ease-in-out bg-black/20 ${expandedSeason === season.seasonNumber ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
-                                        <div className="p-4 pt-0 space-y-3">
-                                            <div className="h-px w-full bg-white/5 mb-4"></div>
-                                            {episodesCache[season.seasonNumber] ? (
-                                                episodesCache[season.seasonNumber].map((ep) => (
-                                                    <div key={ep.episodeNumber} className="flex gap-4 p-3 hover:bg-white/5 rounded-xl transition-colors group/ep relative">
-                                                        <div className="flex-shrink-0 w-24 h-14 bg-slate-800 rounded-lg overflow-hidden relative shadow-md">
-                                                            {ep.stillUrl ? (
-                                                                <img src={ep.stillUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
-                                                            ) : (
-                                                                <img src={getBingUrl(`${item.title} season ${season.seasonNumber} episode ${ep.episodeNumber}`, 'episode')} alt="" className="w-full h-full object-cover opacity-60" loading="lazy" />
-                                                            )}
-                                                            <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/ep:opacity-100 transition-opacity">
-                                                                <PlayCircle size={20} className="text-white drop-shadow-lg" />
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex justify-between items-start">
-                                                                <h5 className="text-sm font-bold text-slate-200 truncate pr-2">{ep.episodeNumber}. {ep.title}</h5>
-                                                                <span className="text-[10px] text-slate-500 font-mono whitespace-nowrap">{ep.airDate}</span>
-                                                            </div>
-                                                            <p className="text-xs text-slate-400 mt-1 line-clamp-2 leading-relaxed">{ep.overview || "No description available."}</p>
-                                                            {ep.rating > 0 && (
-                                                                <div className="flex items-center gap-1 mt-1.5">
-                                                                    <Star size={8} className="text-yellow-500" fill="currentColor" />
-                                                                    <span className="text-[10px] text-slate-400 font-bold">{ep.rating}</span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <div className="text-center py-4 text-slate-500 text-sm">No episodes found.</div>
-                                            )}
-                                        </div>
+                {/* Dropdowns (Episodes) */}
+                <div className="space-y-4">
+                    {item.type !== MediaType.MOVIE && item.seasons?.length && (
+                        <div className="border relative overflow-hidden hover-glow-subtle"
+                             style={{ ...visualStyles.panel, borderColor: `${themeColor}40` }}>
+                            <button onClick={() => setIsEpisodesExpanded(!isEpisodesExpanded)} className="w-full p-4 flex items-center justify-between hover:bg-white/5 transition-all">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-2 border bg-opacity-10" style={{ ...CP.clips.tag, borderColor: `${themeColor}40`, backgroundColor: `${themeColor}10`, color: themeColor }}><Film size={18} /></div>
+                                    <div className="flex flex-col items-start">
+                                        <span className="text-xs font-orbitron font-bold uppercase tracking-[0.2em] text-cp-red">EPISODE_LIST</span>
+                                        <span className="text-[8px] font-rajdhani font-bold uppercase tracking-widest text-cp-yellow">SEASON_BREAKDOWN</span>
                                     </div>
                                 </div>
-                            ))}
+                                <div className="flex items-center gap-4">
+                                    <div className="relative">
+                                        <select 
+                                            value={activeSeason} 
+                                            onClick={(e) => e.stopPropagation()} 
+                                            onChange={(e) => { const s = Number(e.target.value); setActiveSeason(s); loadEpisodes(item.title, s); }} 
+                                            className="appearance-none border text-white text-[10px] font-orbitron font-bold uppercase pl-3 pr-8 py-2 outline-none"
+                                            style={{ ...visualStyles.panel, ...visualStyles.border, borderColor: `${themeColor}40` }}
+                                        >
+                                            {item.seasons.map(s => <option key={s.seasonNumber} value={s.seasonNumber} className="bg-black">SEASON // {s.seasonNumber}</option>)}
+                                        </select>
+                                        <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-white pointer-events-none" />
+                                    </div>
+                                    <ChevronDown size={16} className={`text-slate-500 transition-transform ${isEpisodesExpanded ? 'rotate-180' : ''}`} />
+                                </div>
+                            </button>
+                            {isEpisodesExpanded && (
+                                <div className="p-4 border-t border-white/5 relative">
+                                    <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ background: `linear-gradient(${themeColor} 1px, transparent 1px)`, backgroundSize: '100% 4px' }}></div>
+                                    {loadingEpisodes ? <div className="py-12 flex justify-center"><div className="w-6 h-6 border-2 animate-spin" style={{ borderColor: `${themeColor}33`, borderTopColor: themeColor }}></div></div> : (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
+                                            {episodes.map(ep => (
+                                                <div key={ep.episodeNumber} className="flex gap-4 p-3 border group hover:border-opacity-100 hover:bg-white/5 transition-all duration-300 hover-glow-subtle"
+                                                     style={{ ...visualStyles.panel, borderColor: `${themeColor}20`, '--hover-border': themeColor } as React.CSSProperties}>
+                                                    <style>{`.group:hover { border-color: ${themeColor} !important; }`}</style>
+                                                    <EpisodeImage ep={ep} title={item.title} season={activeSeason} color={themeColor} />
+                                                    <div className="flex flex-col justify-start gap-1 flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className="text-[9px] font-orbitron font-bold text-black px-1.5 py-0.5" style={{ backgroundColor: themeColor }}>E{ep.episodeNumber}</span>
+                                                            <h4 className="text-[11px] font-bold text-cp-yellow font-orbitron line-clamp-1 uppercase tracking-wider truncate">{ep.title}</h4>
+                                                        </div>
+                                                        <p className="text-[11px] text-blue-300 leading-relaxed line-clamp-2 font-rajdhani font-medium opacity-80">{ep.overview || 'NO_DATA_AVAILABLE'}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
 
                 {/* Recommendations */}
-                {recommendations.length > 0 && (
-                    <div className="mb-12">
-                        <h3 className="text-xl font-bold text-white mb-6 pl-2 border-l-4 border-primary">You Might Also Like</h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 md:gap-6">
-                            {recommendations.map(rec => (
-                                <MediaCard key={rec.id} item={rec} />
-                            ))}
-                        </div>
+                <div className="mt-8 pt-8 border-t border-white/10">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="w-2 h-6" style={{ backgroundColor: themeColor }}></div>
+                        <span className="text-xs font-orbitron font-bold uppercase tracking-[0.3em] text-cp-red">RELATED_ENTRIES</span>
                     </div>
-                )}
-
-            </div>
-            </div>
-        </div>
-
-        {/* Video Modal */}
-        {showTrailerModal && trailerEmbedUrl && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-200" onClick={() => setShowTrailerModal(false)}>
-                <div className="w-full max-w-5xl aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl relative border border-white/10 ring-1 ring-white/5" onClick={e => e.stopPropagation()}>
-                    <button 
-                        onClick={() => setShowTrailerModal(false)}
-                        className="absolute top-4 right-4 z-50 bg-black/50 hover:bg-white/20 p-2 rounded-full text-white transition-colors backdrop-blur-md border border-white/10"
-                    >
-                        <X size={24} />
-                    </button>
-                    <iframe 
-                        src={`${trailerEmbedUrl}&autoplay=1`}
-                        title="Trailer"
-                        className="w-full h-full"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                    ></iframe>
+                    {recommendations?.length > 0 ? (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+                            {recommendations.slice(0, 4).map(rec => <div key={rec.id} className="h-[240px] transition-all duration-500"><MediaCard item={rec} /></div>)}
+                        </div>
+                    ) : <div className="py-12 text-center text-[10px] font-orbitron font-bold text-slate-600 uppercase tracking-widest animate-pulse">Scanning Database...</div>}
                 </div>
             </div>
-        )}
+
+            {/* Trailer Modal */}
+            {showTrailer && trailerUrl && (
+                <div className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-md flex items-center justify-center p-4">
+                    <div className="absolute inset-0 pointer-events-none" style={{ background: `linear-gradient(${themeColor}08 1px, transparent 1px)`, backgroundSize: '100% 4px' }}></div>
+                    <button onClick={() => setShowTrailer(false)} className="absolute top-6 right-6 p-2 border border-transparent text-white transition-all group" style={{ '--hover-color': themeColor } as React.CSSProperties}>
+                        <style>{`.group:hover { border-color: ${themeColor}; background-color: ${themeColor}20; }`}</style>
+                        <X size={32} className="group-hover:rotate-90 transition-transform duration-300" />
+                    </button>
+                    <div className="w-full max-w-6xl aspect-video bg-black border-2 shadow-[0_0_50px_rgba(0,0,0,0.5)] relative" style={{ borderColor: themeColor }}>
+                         {/* Corner Accents */}
+                         <div className="absolute -top-2 -left-2 w-8 h-8 border-t-4 border-l-4" style={{ borderColor: themeColor }}></div>
+                         <div className="absolute -bottom-2 -right-2 w-8 h-8 border-b-4 border-r-4" style={{ borderColor: themeColor }}></div>
+                        <iframe src={trailerUrl.includes('youtube') ? `https://www.youtube.com/embed/${trailerUrl.split('v=')[1]?.split('&')[0] || trailerUrl.split('/').pop()}?autoplay=1&modestbranding=1&rel=0` : trailerUrl} className="w-full h-full" allow="autoplay; encrypted-media" allowFullScreen></iframe>
+                    </div>
+                </div>
+            )}
         </div>
-    </>
-  );
+    );
 };
+
+export default DetailsView;

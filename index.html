@@ -3,59 +3,176 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>StreamScope - Discover Media</title>
+    <title>StreamScope - Cyberpunk Edition</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
         theme: {
           extend: {
             colors: {
-              background: '#0f172a',
-              surface: '#1e293b',
-              primary: '#3b82f6',
-              secondary: '#64748b',
-              accent: '#f43f5e',
+              cp: {
+                yellow: '#FCEE0A',
+                cyan: '#00F0FF',
+                red: '#FF003C',
+                purple: '#b026ff',
+                black: '#000000',
+                dark: '#050505',
+                dim: '#0a0a0a',
+                panel: '#121212',
+                muted: '#6b7280'
+              }
             },
             fontFamily: {
-              sans: ['Inter', 'sans-serif'],
+              sans: ['Rajdhani', 'sans-serif'],
+              orbitron: ['Orbitron', 'sans-serif'],
+              rajdhani: ['Rajdhani', 'sans-serif'],
             },
-            boxShadow: {
-              'glass': '0 4px 30px rgba(0, 0, 0, 0.1)',
-              'glass-inset': 'inset 0 0 20px rgba(255, 255, 255, 0.05)',
-              'neon': '0 0 10px rgba(255, 255, 255, 0.5), 0 0 20px rgba(255, 255, 255, 0.3)',
+            animation: {
+               'scan': 'scan 4s linear infinite',
+               'glitch': 'glitch 1s linear infinite',
+               'pulse-fast': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+               'flash': 'flash 2s infinite',
+            },
+            keyframes: {
+               scan: {
+                 '0%': { transform: 'translateY(-100%)' },
+                 '100%': { transform: 'translateY(100%)' }
+               },
+               glitch: {
+                  '0%': { transform: 'translate(0)' },
+                  '20%': { transform: 'translate(-2px, 2px)' },
+                  '40%': { transform: 'translate(-2px, -2px)' },
+                  '60%': { transform: 'translate(2px, 2px)' },
+                  '80%': { transform: 'translate(2px, -2px)' },
+                  '100%': { transform: 'translate(0)' }
+               },
+               flash: {
+                 '0%, 100%': { opacity: '1' },
+                 '50%': { opacity: '0.3' }
+               }
             }
           },
         },
       };
     </script>
     <style>
-      /* Custom Scrollbar */
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: 'Rajdhani', sans-serif;
+        color: #e0e0e0;
+        background-color: #050505;
+        /* Background is now controlled dynamically via JS/Context */
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+        background-repeat: no-repeat;
+        min-height: 100vh;
+        transition: background-image 0.5s ease-in-out;
+      }
+
+      /* Tactical Grid Overlay */
+      body::after {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image: 
+          linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+        background-size: 40px 40px;
+        z-index: -1;
+        pointer-events: none;
+      }
+
+      /* Reduced opacity of overlay so background is visible */
+      body::before {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.6); 
+        background-image: radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.4) 100%);
+        z-index: -1;
+        pointer-events: none;
+      }
+      
+      /* Tech Scrollbar */
       ::-webkit-scrollbar {
-        width: 8px;
+        width: 6px;
       }
       ::-webkit-scrollbar-track {
-        background: transparent;
+        background: #000;
       }
       ::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 4px;
-        backdrop-filter: blur(4px);
+        background: #333;
+        border: 1px solid #FCEE0A;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: rgba(255, 255, 255, 0.2);
+        background: #FCEE0A;
       }
-      body {
-        background-color: #020617;
-        /* Enhanced gradients for better visibility through glass UI - Lighter and more vibrant */
-        background-image: 
-            radial-gradient(at 0% 0%, hsla(253,40%,20%,1) 0, transparent 50%), 
-            radial-gradient(at 50% 0%, hsla(225,50%,35%,1) 0, transparent 50%), 
-            radial-gradient(at 100% 0%, hsla(339,60%,40%,1) 0, transparent 50%),
-            radial-gradient(at 0% 100%, hsla(200,50%,35%,1) 0, transparent 50%),
-            radial-gradient(at 100% 100%, hsla(280,40%,20%,1) 0, transparent 50%);
-        background-attachment: fixed;
-        background-size: cover;
-        color: #f8fafc;
+
+      /* Cyberpunk Utility Classes */
+      .cp-text-shadow { text-shadow: 0 0 5px rgba(0, 240, 255, 0.5); }
+      .cp-box-shadow { box-shadow: 0 0 10px rgba(0, 240, 255, 0.1); }
+      
+      .clip-chamfer { clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); }
+      .clip-tech-card { clip-path: polygon(0 0, 100% 0, 100% 85%, 85% 100%, 0 100%); }
+      .clip-tag-left { clip-path: polygon(0 0, 100% 0, 90% 100%, 0 100%); }
+      
+      /* Standard Range Input Reset */
+      input[type=range] {
+        -webkit-appearance: none; 
+        background: transparent; 
+        width: 100%;
+      }
+      
+      input[type=range]:focus {
+        outline: none;
+      }
+
+      /* Cyberpunk Slider Thumb Styles */
+      .cyberpunk-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #000;
+        border: 2px solid #FCEE0A;
+        box-shadow: 0 0 10px #FCEE0A;
+        cursor: pointer;
+        transition: transform 0.1s;
+        margin-top: 0; /* Centering handled by flex or height alignment */
+      }
+      .cyberpunk-slider::-webkit-slider-thumb:hover {
+        transform: scale(1.2);
+      }
+      .cyberpunk-slider::-webkit-slider-thumb:active {
+        transform: scale(1.1);
+        background: #FCEE0A;
+      }
+
+      /* Firefox Support */
+      .cyberpunk-slider::-moz-range-thumb {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #000;
+        border: 2px solid #FCEE0A;
+        box-shadow: 0 0 10px #FCEE0A;
+        cursor: pointer;
+        transition: transform 0.1s;
+      }
+      .cyberpunk-slider::-moz-range-thumb:hover {
+        transform: scale(1.2);
       }
     </style>
   <script type="importmap">
